@@ -12,7 +12,8 @@ func handlerFunc(w http.ResponseWriter, r *http.Request) {
 	} else if r.URL.Path == "/about" {
 		fmt.Fprint(w, "I am ZZY,please contact me at:1034337098@qq.com")
 	} else {
-		fmt.Fprint(w, "wrong!!")
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, "wrong!!Please try again")
 	}
 }
 func main() {
