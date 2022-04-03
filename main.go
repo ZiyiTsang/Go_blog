@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
+	"strings"
 )
 
 func handlerfunc_Root(w http.ResponseWriter, r *http.Request) {
@@ -35,17 +36,25 @@ func HTML_Middleware(h http.Handler) http.Handler {
 		h.ServeHTTP(w, r)
 	})
 }
+func remove_TrailingSlash(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
 func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/", handlerfunc_Root).Methods("Get").Name("home")
 	router.HandleFunc("/about", handlerFunc_About).Methods("Get").Name("about")
-	//router.HandleFunc("/articles", handlerfunc_Articles_Index).Methods("Get").Name("article.index")
-	//router.HandleFunc("/articles", handlerfunc_Articles_Store).Methods("Post").Name("article.store")
-
 	router.HandleFunc("/articles/{id:[0-9]+}", handlerfunc_Articles_Show).Methods("Get").Name("article.show")
 	router.HandleFunc("/articles", handlerfunc_Articles_Index).Methods("GET").Name("articles.index")
 	router.HandleFunc("/articles", handlerfunc_Articles_Store).Methods("POST").Name("articles.store")
 	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
 	router.Use(HTML_Middleware)
-	http.ListenAndServe(":3000", router)
+	err := http.ListenAndServe(":3000", remove_TrailingSlash(router))
+	if err != nil {
+		panic(err)
+	}
 }
