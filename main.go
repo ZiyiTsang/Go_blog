@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"github.com/gorilla/mux"
+	"html/template"
 	"net/http"
+	"net/url"
 	"os"
 	"runtime"
 	"strings"
+	"unicode/utf8"
 )
 
 var router = mux.NewRouter()
@@ -20,16 +23,73 @@ func handlerfunc_Articles_Index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "访问文章列表")
 
 }
+
+type ArticlesFormData struct {
+	Title  string
+	Body   string
+	URL    *url.URL
+	Errors interface{}
+}
+
 func handlerfunc_Articles_Store(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "创建新的文章")
 	err := r.ParseForm()
 	if err != nil {
 		fmt.Fprint(w, "something err in post")
 	}
-	title := r.PostForm.Get("title")
-	fmt.Fprintf(w, "POST PostForm: %v <br>", r.PostForm)
-	fmt.Fprintf(w, "POST Form: %v <br>", r.Form)
-	fmt.Fprintf(w, "title 的值为: %v", title)
+	title := r.PostFormValue("title")
+	body := r.PostFormValue("body")
+	error_tag := make(map[string]string)
+	if title == "" {
+		error_tag["title"] = "Title:empty"
+	} else if utf8.RuneCountInString(title) > 40 || utf8.RuneCountInString(title) < 8 {
+		error_tag["title"] = "Title:too long/too short(needs 8-40)"
+	}
+	if body == "" {
+		error_tag["body"] = "Body:empty"
+	} else if utf8.RuneCountInString(body) > 200 || utf8.RuneCountInString(body) < 8 {
+		error_tag["body"] = "Body:too long/too short(needs 8-20)"
+	}
+	if len(error_tag) == 0 {
+		fmt.Fprint(w, "Correct posting!")
+	} else {
+		html := `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>创建文章 —— 我的技术博客</title>
+    <style type="text/css">.error {color: red;}</style>
+</head>
+<body>
+    <form action="{{ .URL }}" method="post">
+        <p><input type="text" name="title" value="{{ .Title }}"></p>
+        {{ with .Errors.title }}
+        <p class="error">{{ . }}</p>
+        {{ end }}
+        <p><textarea name="body" cols="30" rows="10">{{ .Body }}</textarea></p>
+        {{ with .Errors.body }}
+        <p class="error">{{ . }}</p>
+        {{ end }}
+        <p><button type="submit">提交</button></p>
+    </form>
+</body>
+</html>
+`
+		storeURL, _ := router.Get("articles.store").URL()
+		data := ArticlesFormData{
+			Title:  title,
+			Body:   body,
+			URL:    storeURL,
+			Errors: error_tag,
+		}
+		tmpl, err := template.New("create-form").Parse(html)
+		if err != nil {
+			panic(err)
+		}
+		err = tmpl.Execute(w, data)
+		if err != nil {
+			panic(err)
+		}
+	}
 }
 
 func handlerFunc_About(w http.ResponseWriter, r *http.Request) {
