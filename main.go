@@ -22,7 +22,16 @@ func handlerfunc_Articles_Index(w http.ResponseWriter, r *http.Request) {
 }
 func handlerfunc_Articles_Store(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "创建新的文章")
+	err := r.ParseForm()
+	if err != nil {
+		fmt.Fprint(w, "something err in post")
+	}
+	title := r.PostForm.Get("title")
+	fmt.Fprintf(w, "POST PostForm: %v <br>", r.PostForm)
+	fmt.Fprintf(w, "POST Form: %v <br>", r.Form)
+	fmt.Fprintf(w, "title 的值为: %v", title)
 }
+
 func handlerFunc_About(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "I am Ziyi Tsang,please contact me at:1034337098@qq.com")
 }
@@ -35,24 +44,25 @@ func handlerfunc_Articles_Show(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "文章 ID："+id)
 }
 func handlerfunc_Articles_Create(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, "创建博文表单")
 	html := `
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>创建文章 —— 我的技术博客</title>
+    <title>Create article</title>
 </head>
 <body>
     <form action="%s" method="post">
-        <p><input type="text" name="title"></p>
-        <p><textarea name="body" cols="30" rows="10"></textarea></p>
-        <p><button type="submit">提交</button></p>
+        <p><input type="text" name="title" value="title"></p>
+        <p><textarea name="body" cols="300" rows="10" value="content"></textarea></p>
+        <p><button type="submit">submit</button></p>
     </form>
 </body>
 </html>
 `
 	storeURL, _ := router.Get("articles.store").URL()
 	fmt.Fprintf(w, html, storeURL)
-	fmt.Fprint(w, "创建博文表单")
+
 }
 func HTML_Middleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
