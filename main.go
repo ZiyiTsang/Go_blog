@@ -52,28 +52,6 @@ func handlerfunc_Articles_Store(w http.ResponseWriter, r *http.Request) {
 	if len(error_tag) == 0 {
 		fmt.Fprint(w, "Correct posting!")
 	} else {
-		html := `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <title>创建文章 —— 我的技术博客</title>
-    <style type="text/css">.error {color: red;}</style>
-</head>
-<body>
-    <form action="{{ .URL }}" method="post">
-        <p><input type="text" name="title" value="{{ .Title }}"></p>
-        {{ with .Errors.title }}
-        <p class="error">{{ . }}</p>
-        {{ end }}
-        <p><textarea name="body" cols="30" rows="10">{{ .Body }}</textarea></p>
-        {{ with .Errors.body }}
-        <p class="error">{{ . }}</p>
-        {{ end }}
-        <p><button type="submit">提交</button></p>
-    </form>
-</body>
-</html>
-`
 		storeURL, _ := router.Get("articles.store").URL()
 		data := ArticlesFormData{
 			Title:  title,
@@ -81,7 +59,7 @@ func handlerfunc_Articles_Store(w http.ResponseWriter, r *http.Request) {
 			URL:    storeURL,
 			Errors: error_tag,
 		}
-		tmpl, err := template.New("create-form").Parse(html)
+		tmpl, err := template.ParseFiles("resources/views/articles/create.gohtml")
 		if err != nil {
 			panic(err)
 		}
@@ -104,26 +82,27 @@ func handlerfunc_Articles_Show(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "文章 ID："+id)
 }
 func handlerfunc_Articles_Create(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "创建博文表单")
-	html := `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <title>Create article</title>
-</head>
-<body>
-    <form action="%s" method="post">
-        <p><input type="text" name="title" value="title"></p>
-        <p><textarea name="body" cols="300" rows="10" value="content"></textarea></p>
-        <p><button type="submit">submit</button></p>
-    </form>
-</body>
-</html>
-`
 	storeURL, _ := router.Get("articles.store").URL()
-	fmt.Fprintf(w, html, storeURL)
+	err_tag := make(map[string]string)
+	err_tag["title"] = ""
+	err_tag["body"] = ""
+	data := ArticlesFormData{
+		Title:  "",
+		Body:   "",
+		URL:    storeURL,
+		Errors: err_tag,
+	}
+	tmpl, err := template.ParseFiles("resources/views/articles/create.gohtml")
+	if err != nil {
+		panic(err)
+	}
 
+	err = tmpl.Execute(w, data)
+	if err != nil {
+		panic(err)
+	}
 }
+
 func HTML_Middleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
