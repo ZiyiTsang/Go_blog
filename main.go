@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	_ "github.com/go-sql-driver/mysql" //Anonymous import->enable support for MySQL,,but not use directly
 	"github.com/gorilla/mux"
 	"html/template"
 	"net/http"
@@ -16,11 +17,11 @@ var router = mux.NewRouter()
 
 func handlerfunc_Root(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Fprint(w, "<h1>Hello, 这里是 ZZY的goblog</h1>")
+	fmt.Fprint(w, "<h1>Hello, this is ZIYI's personal Goblog</h1>")
 }
 func handlerfunc_Articles_Index(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Fprint(w, "访问文章列表")
+	fmt.Fprint(w, "article index")
 
 }
 
@@ -79,7 +80,7 @@ func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 func handlerfunc_Articles_Show(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	fmt.Fprint(w, "文章 ID："+id)
+	fmt.Fprint(w, "Article ID："+id)
 }
 func handlerfunc_Articles_Create(w http.ResponseWriter, r *http.Request) {
 	storeURL, _ := router.Get("articles.store").URL()
@@ -121,13 +122,16 @@ func main() {
 	defer func() {
 		err := recover()
 		switch err.(type) {
+		//if is runtime error....
 		case runtime.Error:
 			fmt.Println("runtime:error", err)
+		//other error....
 		default:
 			fmt.Println("other error", err)
 		}
 		os.Exit(0)
 	}()
+	//create relation between address and handle_function
 	router.HandleFunc("/", handlerfunc_Root).Methods("Get").Name("home")
 	router.HandleFunc("/about", handlerFunc_About).Methods("Get").Name("about")
 	router.HandleFunc("/articles/{id:[0-9]+}", handlerfunc_Articles_Show).Methods("Get").Name("article.show")
@@ -136,6 +140,7 @@ func main() {
 	router.HandleFunc("/articles/create", handlerfunc_Articles_Create).Methods("GET").Name("articles.create")
 	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
 	router.Use(HTML_Middleware)
+	//start server
 	err := http.ListenAndServe(":3000", remove_TrailingSlash(router))
 	if err != nil {
 		panic(err)
