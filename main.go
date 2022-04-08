@@ -1,19 +1,24 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql" //Anonymous import->enable support for MySQL,,but not use directly
 	"github.com/gorilla/mux"
 	"html/template"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"runtime"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
 var router = mux.NewRouter()
+var db *sql.DB
 
 func handlerfunc_Root(w http.ResponseWriter, r *http.Request) {
 
@@ -118,6 +123,34 @@ func remove_TrailingSlash(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+func checkError(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+func initDB() {
+	var err error
+	config := mysql.Config{
+		User:                 "root",
+		Passwd:               "xxxxxx",
+		Addr:                 "rm-wz96623i6dr5m67q52o.mysql.rds.aliyuncs.com",
+		Net:                  "tcp",
+		DBName:               "go_blog",
+		AllowNativePasswords: true,
+		Timeout:              time.Second * 5,
+		CheckConnLiveness:    true,
+	}
+	db, err = sql.Open("mysql", config.FormatDSN())
+	checkError(err)
+	//my mySQL "wait_timeout" shows "7200"(s)=2hour,I set same as it did..
+	db.SetConnMaxLifetime(2 * time.Hour)
+	//my mySQL "max_connections" shows 2520,so I set 2000 here..
+	db.SetMaxOpenConns(1000)
+	//I think it is ok for more than 10..
+	db.SetMaxIdleConns(40)
+	err = db.Ping()
+	checkError(err)
+}
 func main() {
 	defer func() {
 		err := recover()
@@ -131,6 +164,7 @@ func main() {
 		}
 		os.Exit(0)
 	}()
+	initDB()
 	//create relation between address and handle_function
 	router.HandleFunc("/", handlerfunc_Root).Methods("Get").Name("home")
 	router.HandleFunc("/about", handlerFunc_About).Methods("Get").Name("about")
