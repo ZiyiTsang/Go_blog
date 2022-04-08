@@ -132,12 +132,12 @@ func initDB() {
 	var err error
 	config := mysql.Config{
 		User:                 "root",
-		Passwd:               "xxxxxx",
+		Passwd:               "xxxxx",
 		Addr:                 "rm-wz96623i6dr5m67q52o.mysql.rds.aliyuncs.com",
 		Net:                  "tcp",
 		DBName:               "go_blog",
 		AllowNativePasswords: true,
-		Timeout:              time.Second * 5,
+		Timeout:              time.Hour * 2,
 		CheckConnLiveness:    true,
 	}
 	db, err = sql.Open("mysql", config.FormatDSN())
