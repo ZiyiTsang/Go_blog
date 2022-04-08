@@ -6,6 +6,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql" //Anonymous import->enable support for MySQL,,but not use directly
 	"github.com/gorilla/mux"
+	"github.com/zalando/go-keyring"
 	"html/template"
 	"log"
 	"net/http"
@@ -130,10 +131,14 @@ func checkError(err error) {
 }
 func initDB() {
 	var err error
+	mysql_passwd, err := keyring.Get("mysql", "root")
+	checkError(err)
+	mysql_address, err := keyring.Get("mysql", "address")
+	checkError(err)
 	config := mysql.Config{
 		User:                 "root",
-		Passwd:               "xxxxx",
-		Addr:                 "rm-wz96623i6dr5m67q52o.mysql.rds.aliyuncs.com",
+		Passwd:               mysql_passwd,
+		Addr:                 mysql_address,
 		Net:                  "tcp",
 		DBName:               "go_blog",
 		AllowNativePasswords: true,
@@ -150,33 +155,48 @@ func initDB() {
 	db.SetMaxIdleConns(40)
 	err = db.Ping()
 	checkError(err)
+	fmt.Println("init DB successful")
+}
+func createTables() {
+	createArticlesSQL := `CREATE TABLE IF NOT EXISTS articles(
+    id bigint(20) PRIMARY KEY AUTO_INCREMENT NOT NULL,
+    title varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+    body longtext COLLATE utf8mb4_unicode_ci
+); `
+	_, err := db.Exec(createArticlesSQL)
+	checkError(err)
+	fmt.Println("exec order successful")
 }
 func main() {
 	defer func() {
 		err := recover()
-		switch err.(type) {
-		//if is runtime error....
-		case runtime.Error:
-			fmt.Println("runtime:error", err)
-		//other error....
-		default:
-			fmt.Println("other error", err)
+		if err != nil {
+			switch err.(type) {
+			//if is runtime error....
+			case runtime.Error:
+				fmt.Println("runtime:error", err)
+			//other error....
+			default:
+				fmt.Println("other error", err)
+			}
+			os.Exit(-1)
 		}
 		os.Exit(0)
 	}()
 	initDB()
-	//create relation between address and handle_function
-	router.HandleFunc("/", handlerfunc_Root).Methods("Get").Name("home")
-	router.HandleFunc("/about", handlerFunc_About).Methods("Get").Name("about")
-	router.HandleFunc("/articles/{id:[0-9]+}", handlerfunc_Articles_Show).Methods("Get").Name("article.show")
-	router.HandleFunc("/articles", handlerfunc_Articles_Index).Methods("GET").Name("articles.index")
-	router.HandleFunc("/articles", handlerfunc_Articles_Store).Methods("POST").Name("articles.store")
-	router.HandleFunc("/articles/create", handlerfunc_Articles_Create).Methods("GET").Name("articles.create")
-	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
-	router.Use(HTML_Middleware)
-	//start server
-	err := http.ListenAndServe(":3000", remove_TrailingSlash(router))
-	if err != nil {
-		panic(err)
-	}
+	createTables()
+	////create relation between address and handle_function
+	//router.HandleFunc("/", handlerfunc_Root).Methods("Get").Name("home")
+	//router.HandleFunc("/about", handlerFunc_About).Methods("Get").Name("about")
+	//router.HandleFunc("/articles/{id:[0-9]+}", handlerfunc_Articles_Show).Methods("Get").Name("article.show")
+	//router.HandleFunc("/articles", handlerfunc_Articles_Index).Methods("GET").Name("articles.index")
+	//router.HandleFunc("/articles", handlerfunc_Articles_Store).Methods("POST").Name("articles.store")
+	//router.HandleFunc("/articles/create", handlerfunc_Articles_Create).Methods("GET").Name("articles.create")
+	//router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
+	//router.Use(HTML_Middleware)
+	////start server
+	//err := http.ListenAndServe(":3000", remove_TrailingSlash(router))
+	//if err != nil {
+	//	panic(err)
+	//}
 }
