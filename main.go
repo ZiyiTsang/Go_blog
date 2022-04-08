@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql" //Anonymous import->enable support for MySQL,,but not use directly
@@ -21,6 +22,11 @@ import (
 var router = mux.NewRouter()
 var db *sql.DB
 
+func execSql(s string) {
+	_, err := db.Exec(s)
+	checkError(err)
+	fmt.Println("exec order successful")
+}
 func handlerfunc_Root(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprint(w, "<h1>Hello, this is ZIYI's personal Goblog</h1>")
@@ -38,6 +44,27 @@ type ArticlesFormData struct {
 	Errors interface{}
 }
 
+func save_article_to_db(title string, body string) (int64, error) {
+	var (
+		id        int64
+		err       error
+		result    sql.Result
+		statement *sql.Stmt
+	)
+	statement, err = db.Prepare("insert into articles(title, body,time) VALUES (?,?,now())")
+	if err != nil {
+		return 0, err
+	}
+	result, err = statement.Exec(title, body)
+	id, err = result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	if id <= 0 {
+		return 0, errors.New("id<=0")
+	}
+	return id, nil
+}
 func handlerfunc_Articles_Store(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
@@ -56,8 +83,20 @@ func handlerfunc_Articles_Store(w http.ResponseWriter, r *http.Request) {
 	} else if utf8.RuneCountInString(body) > 200 || utf8.RuneCountInString(body) < 8 {
 		error_tag["body"] = "Body:too long/too short(needs 8-20)"
 	}
+	//
 	if len(error_tag) == 0 {
-		fmt.Fprint(w, "Correct posting!")
+		_, err := fmt.Fprintln(w, "Correct posting!")
+		if err != nil {
+			checkError(err)
+		}
+		var increate_id int64
+		increate_id, err = save_article_to_db(title, body)
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprint(w, "SQL error!")
+			checkError(err)
+		}
+		fmt.Fprintf(w, "insert seccuess full!id=%d\n", increate_id)
 	} else {
 		storeURL, _ := router.Get("articles.store").URL()
 		data := ArticlesFormData{
@@ -157,16 +196,7 @@ func initDB() {
 	checkError(err)
 	fmt.Println("init DB successful")
 }
-func createTables() {
-	createArticlesSQL := `CREATE TABLE IF NOT EXISTS articles(
-    id bigint(20) PRIMARY KEY AUTO_INCREMENT NOT NULL,
-    title varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-    body longtext COLLATE utf8mb4_unicode_ci
-); `
-	_, err := db.Exec(createArticlesSQL)
-	checkError(err)
-	fmt.Println("exec order successful")
-}
+
 func main() {
 	defer func() {
 		err := recover()
@@ -184,19 +214,28 @@ func main() {
 		os.Exit(0)
 	}()
 	initDB()
-	createTables()
-	////create relation between address and handle_function
-	//router.HandleFunc("/", handlerfunc_Root).Methods("Get").Name("home")
-	//router.HandleFunc("/about", handlerFunc_About).Methods("Get").Name("about")
-	//router.HandleFunc("/articles/{id:[0-9]+}", handlerfunc_Articles_Show).Methods("Get").Name("article.show")
-	//router.HandleFunc("/articles", handlerfunc_Articles_Index).Methods("GET").Name("articles.index")
-	//router.HandleFunc("/articles", handlerfunc_Articles_Store).Methods("POST").Name("articles.store")
-	//router.HandleFunc("/articles/create", handlerfunc_Articles_Create).Methods("GET").Name("articles.create")
-	//router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
-	//router.Use(HTML_Middleware)
-	////start server
-	//err := http.ListenAndServe(":3000", remove_TrailingSlash(router))
-	//if err != nil {
-	//	panic(err)
-	//}
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Println("DB can not close")
+			os.Exit(-1)
+		}
+	}(db)
+	//create relation between address and handle_function
+	fmt.Println("create handle function")
+	router.HandleFunc("/", handlerfunc_Root).Methods("Get").Name("home")
+	router.HandleFunc("/about", handlerFunc_About).Methods("Get").Name("about")
+	router.HandleFunc("/articles/{id:[0-9]+}", handlerfunc_Articles_Show).Methods("Get").Name("article.show")
+	router.HandleFunc("/articles", handlerfunc_Articles_Index).Methods("GET").Name("articles.index")
+	router.HandleFunc("/articles", handlerfunc_Articles_Store).Methods("POST").Name("articles.store")
+	router.HandleFunc("/articles/create", handlerfunc_Articles_Create).Methods("GET").Name("articles.create")
+	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
+	router.Use(HTML_Middleware)
+	//start server
+	fmt.Println("start server and listening")
+	err := http.ListenAndServe(":3000", remove_TrailingSlash(router))
+	if err != nil {
+		panic(err)
+	}
+
 }
