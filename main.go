@@ -22,29 +22,30 @@ import (
 var router = mux.NewRouter()
 var db *sql.DB
 
-func execSql(s string) {
-	_, err := db.Exec(s)
-	checkError(err)
-	fmt.Println("exec order successful")
-}
-func handlerfunc_Root(w http.ResponseWriter, r *http.Request) {
-
-	fmt.Fprint(w, "<h1>Hello, this is ZIYI's personal Goblog</h1>")
-}
-func handlerfunc_Articles_Index(w http.ResponseWriter, r *http.Request) {
-
-	fmt.Fprint(w, "article index")
-
-}
-
 type ArticlesFormData struct {
 	Title  string
 	Body   string
 	URL    *url.URL
 	Errors interface{}
 }
+type ArticlesData struct {
+	Title string
+	Body  string
+	Time  string //store_time
+	Id    int64
+}
 
-func save_article_to_db(title string, body string) (int64, error) {
+func handlerfuncRoot(w http.ResponseWriter, r *http.Request) {
+
+	fmt.Fprint(w, "<h1>Hello, this is ZIYI's personal Goblog</h1>")
+}
+func handlerfuncArticlesIndex(w http.ResponseWriter, r *http.Request) {
+
+	fmt.Fprint(w, "article index")
+
+}
+
+func saveArticleToDB(title string, body string) (int64, error) {
 	var (
 		id        int64
 		err       error
@@ -56,6 +57,9 @@ func save_article_to_db(title string, body string) (int64, error) {
 		return 0, err
 	}
 	result, err = statement.Exec(title, body)
+	if err != nil {
+		return 0, err
+	}
 	id, err = result.LastInsertId()
 	if err != nil {
 		return 0, err
@@ -65,45 +69,45 @@ func save_article_to_db(title string, body string) (int64, error) {
 	}
 	return id, nil
 }
-func handlerfunc_Articles_Store(w http.ResponseWriter, r *http.Request) {
+func handlerfuncArticlesStore(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		fmt.Fprint(w, "something err in post")
 	}
 	title := r.PostFormValue("title")
 	body := r.PostFormValue("body")
-	error_tag := make(map[string]string)
+	errorTag := make(map[string]string)
 	if title == "" {
-		error_tag["title"] = "Title:empty"
+		errorTag["title"] = "Title:empty"
 	} else if utf8.RuneCountInString(title) > 40 || utf8.RuneCountInString(title) < 8 {
-		error_tag["title"] = "Title:too long/too short(needs 8-40)"
+		errorTag["title"] = "Title:too long/too short(needs 8-40)"
 	}
 	if body == "" {
-		error_tag["body"] = "Body:empty"
+		errorTag["body"] = "body:empty"
 	} else if utf8.RuneCountInString(body) > 200 || utf8.RuneCountInString(body) < 8 {
-		error_tag["body"] = "Body:too long/too short(needs 8-20)"
+		errorTag["body"] = "body:too long/too short(needs 8-20)"
 	}
 	//
-	if len(error_tag) == 0 {
-		_, err := fmt.Fprintln(w, "Correct posting!")
+	if len(errorTag) == 0 {
+		_, err := fmt.Fprintln(w, "Correct Input data!")
 		if err != nil {
 			checkError(err)
 		}
-		var increate_id int64
-		increate_id, err = save_article_to_db(title, body)
+		var increateId int64
+		increateId, err = saveArticleToDB(title, body)
 		if err != nil {
 			w.WriteHeader(500)
 			fmt.Fprint(w, "SQL error!")
 			checkError(err)
 		}
-		fmt.Fprintf(w, "insert seccuess full!id=%d\n", increate_id)
+		fmt.Fprintf(w, "insert seccuess full!id=%d\n", increateId)
 	} else {
 		storeURL, _ := router.Get("articles.store").URL()
 		data := ArticlesFormData{
 			Title:  title,
 			Body:   body,
 			URL:    storeURL,
-			Errors: error_tag,
+			Errors: errorTag,
 		}
 		tmpl, err := template.ParseFiles("resources/views/articles/create.gohtml")
 		if err != nil {
@@ -116,27 +120,46 @@ func handlerfunc_Articles_Store(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handlerFunc_About(w http.ResponseWriter, r *http.Request) {
+func handlerfuncAbout(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "I am Ziyi Tsang,please contact me at:1034337098@qq.com")
 }
 func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "404")
 }
-func handlerfunc_Articles_Show(w http.ResponseWriter, r *http.Request) {
+func handlerfuncArticlesShow(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
-	fmt.Fprint(w, "Article ID："+id)
+	article := ArticlesData{}
+	query := "select * from articles where id=?"
+	err := db.QueryRow(query, id).Scan(&article.Id, &article.Title, &article.Body, &article.Time)
+	if err != nil {
+		w.WriteHeader(404)
+		if err == sql.ErrNoRows {
+			fmt.Fprintln(w, "no such article!")
+		} else if err == sql.ErrConnDone {
+			fmt.Fprintln(w, "DB connection failure!")
+		} else {
+			fmt.Fprintln(w, "other failure!")
+		}
+	} else {
+		//fmt.Fprintln(w, article.id, article.title, article.body, article.time)
+		tmpl, err := template.ParseFiles("resources/views/articles/show.gohtml")
+		checkError(err)
+		err = tmpl.Execute(w, article)
+		checkError(err)
+	}
+
 }
-func handlerfunc_Articles_Create(w http.ResponseWriter, r *http.Request) {
+func handlerfuncArticlesCreate(w http.ResponseWriter, r *http.Request) {
 	storeURL, _ := router.Get("articles.store").URL()
-	err_tag := make(map[string]string)
-	err_tag["title"] = ""
-	err_tag["body"] = ""
+	errTag := make(map[string]string)
+	errTag["title"] = ""
+	errTag["body"] = ""
 	data := ArticlesFormData{
 		Title:  "",
 		Body:   "",
 		URL:    storeURL,
-		Errors: err_tag,
+		Errors: errTag,
 	}
 	tmpl, err := template.ParseFiles("resources/views/articles/create.gohtml")
 	if err != nil {
@@ -149,13 +172,13 @@ func handlerfunc_Articles_Create(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func HTML_Middleware(h http.Handler) http.Handler {
+func HtmlMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		h.ServeHTTP(w, r)
 	})
 }
-func remove_TrailingSlash(next http.Handler) http.Handler {
+func removeTrailingslash(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
@@ -170,14 +193,14 @@ func checkError(err error) {
 }
 func initDB() {
 	var err error
-	mysql_passwd, err := keyring.Get("mysql", "root")
+	mysqlPasswd, err := keyring.Get("mysql", "root")
 	checkError(err)
-	mysql_address, err := keyring.Get("mysql", "address")
+	mysqlAddress, err := keyring.Get("mysql", "address")
 	checkError(err)
 	config := mysql.Config{
 		User:                 "root",
-		Passwd:               mysql_passwd,
-		Addr:                 mysql_address,
+		Passwd:               mysqlPasswd,
+		Addr:                 mysqlAddress,
 		Net:                  "tcp",
 		DBName:               "go_blog",
 		AllowNativePasswords: true,
@@ -211,6 +234,7 @@ func main() {
 			}
 			os.Exit(-1)
 		}
+		fmt.Println("Thank you for using!")
 		os.Exit(0)
 	}()
 	initDB()
@@ -223,17 +247,17 @@ func main() {
 	}(db)
 	//create relation between address and handle_function
 	fmt.Println("create handle function")
-	router.HandleFunc("/", handlerfunc_Root).Methods("Get").Name("home")
-	router.HandleFunc("/about", handlerFunc_About).Methods("Get").Name("about")
-	router.HandleFunc("/articles/{id:[0-9]+}", handlerfunc_Articles_Show).Methods("Get").Name("article.show")
-	router.HandleFunc("/articles", handlerfunc_Articles_Index).Methods("GET").Name("articles.index")
-	router.HandleFunc("/articles", handlerfunc_Articles_Store).Methods("POST").Name("articles.store")
-	router.HandleFunc("/articles/create", handlerfunc_Articles_Create).Methods("GET").Name("articles.create")
+	router.HandleFunc("/", handlerfuncRoot).Methods("Get").Name("home")
+	router.HandleFunc("/about", handlerfuncAbout).Methods("Get").Name("about")
+	router.HandleFunc("/articles/{id:[0-9]+}", handlerfuncArticlesShow).Methods("Get").Name("article.show")
+	router.HandleFunc("/articles", handlerfuncArticlesIndex).Methods("GET").Name("articles.index")
+	router.HandleFunc("/articles", handlerfuncArticlesStore).Methods("POST").Name("articles.store")
+	router.HandleFunc("/articles/create", handlerfuncArticlesCreate).Methods("GET").Name("articles.create")
 	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
-	router.Use(HTML_Middleware)
+	router.Use(HtmlMiddleware)
 	//start server
 	fmt.Println("start server and listening")
-	err := http.ListenAndServe(":3000", remove_TrailingSlash(router))
+	err := http.ListenAndServe(":3000", removeTrailingslash(router))
 	if err != nil {
 		panic(err)
 	}
