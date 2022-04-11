@@ -37,6 +37,11 @@ type ArticlesData struct {
 	Id    int64
 }
 
+func (a ArticlesData) Link() (URL string) {
+	u, err := router.Get("article.show").URL("id", strconv.Itoa(int(a.Id)))
+	checkError(err)
+	return u.String()
+}
 func getVariebleFromURL(variable string, r *http.Request) string {
 	vars := mux.Vars(r)
 	return vars[variable]
@@ -67,8 +72,27 @@ func handlerfuncRoot(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "<h1>Hello, this is ZIYI's personal Goblog</h1>")
 }
 func handlerfuncArticlesIndex(w http.ResponseWriter, r *http.Request) {
-
-	fmt.Fprint(w, "article index")
+	query := "select * from articles"
+	rows, err := db.Query(query)
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			checkError(err)
+		}
+	}(rows)
+	checkError(err)
+	articles := make([]ArticlesData, 0, 10)
+	for rows.Next() {
+		article := ArticlesData{}
+		err := rows.Scan(&article.Id, &article.Title, &article.Body, &article.Time)
+		checkError(err)
+		articles = append(articles, article)
+	}
+	err = rows.Err()
+	checkError(err)
+	tmpl, _ := template.ParseFiles("resources/views/articles/index.gohtml")
+	err = tmpl.Execute(w, articles)
+	checkError(err)
 
 }
 

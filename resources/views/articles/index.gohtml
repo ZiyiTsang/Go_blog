@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>article index</title>
+    <style type="text/css">.error {color: red;}</style>
+</head>
+<body>
+    <h1>All article</h1>
+    <ul>
+        {{ range $key, $article := . }}
+            <li><a  href="{{ $article.Link }}"><strong>{{ $article.Id }}</strong>: {{ $article.Title }}</a></li>
+        {{ end }}
+    </ul>
+</body>
+</html>
