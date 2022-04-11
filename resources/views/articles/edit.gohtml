@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>edit-article{{.Id}}</title>
+    <style type="text/css">.error {color: red;}</style>
+</head>
+<body>
+
+    <form action="{{ .URL }}" method="post">
+        <h2>Title</h2>
+        <p><input type="text" name="title" value="{{ .Title }}"></p>
+        {{ with .Errors.title }}
+        <p class="error">{{ . }}</p>
+        {{ end }}
+        <h2>Content</h2>
+        <p><textarea name="body" cols="30" rows="10">{{ .Body }}</textarea></p>
+        {{ with .Errors.body }}
+        <p class="error">{{ . }}</p>
+        {{ end }}
+        {{ with .Time }}
+        <h2>Time</h2>
+        <p>{{ . }}</p>
+        {{ end }}
+
+        <p><button type="submit">update</button></p>
+    </form>
+</body>
+</html>

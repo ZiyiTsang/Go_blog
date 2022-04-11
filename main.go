@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
-	_ "github.com/go-sql-driver/mysql" //Anonymous import->enable support for MySQL,,but not use directly
 	"github.com/gorilla/mux"
 	"github.com/zalando/go-keyring"
 	"html/template"
@@ -14,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -27,6 +27,8 @@ type ArticlesFormData struct {
 	Body   string
 	URL    *url.URL
 	Errors interface{}
+	Time   string
+	Id     int64
 }
 type ArticlesData struct {
 	Title string
@@ -35,6 +37,31 @@ type ArticlesData struct {
 	Id    int64
 }
 
+func getVariebleFromURL(variable string, r *http.Request) string {
+	vars := mux.Vars(r)
+	return vars[variable]
+}
+func getArticleByID(id string) (ArticlesData, error) {
+	query := "select * from articles where id=?"
+	article := ArticlesData{}
+	err := db.QueryRow(query, id).Scan(&article.Id, &article.Title, &article.Body, &article.Time)
+	return article, err
+}
+func validateArticleFormData(title string, body string) map[string]string {
+	e := make(map[string]string)
+	if title == "" {
+		e["title"] = "title can not be empty"
+	} else if utf8.RuneCountInString(title) < 3 || utf8.RuneCountInString(title) > 40 {
+		e["title"] = "title should within 3-40 character"
+	}
+
+	if body == "" {
+		e["body"] = "content cannot be empty"
+	} else if utf8.RuneCountInString(body) < 10 || utf8.RuneCountInString(body) < 500 {
+		e["body"] = "content should within 10-500 character"
+	}
+	return e
+}
 func handlerfuncRoot(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprint(w, "<h1>Hello, this is ZIYI's personal Goblog</h1>")
@@ -76,18 +103,7 @@ func handlerfuncArticlesStore(w http.ResponseWriter, r *http.Request) {
 	}
 	title := r.PostFormValue("title")
 	body := r.PostFormValue("body")
-	errorTag := make(map[string]string)
-	if title == "" {
-		errorTag["title"] = "Title:empty"
-	} else if utf8.RuneCountInString(title) > 40 || utf8.RuneCountInString(title) < 8 {
-		errorTag["title"] = "Title:too long/too short(needs 8-40)"
-	}
-	if body == "" {
-		errorTag["body"] = "body:empty"
-	} else if utf8.RuneCountInString(body) > 200 || utf8.RuneCountInString(body) < 8 {
-		errorTag["body"] = "body:too long/too short(needs 8-20)"
-	}
-	//
+	errorTag := validateArticleFormData(title, body)
 	if len(errorTag) == 0 {
 		_, err := fmt.Fprintln(w, "Correct Input data!")
 		if err != nil {
@@ -127,11 +143,8 @@ func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "404")
 }
 func handlerfuncArticlesShow(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-	article := ArticlesData{}
-	query := "select * from articles where id=?"
-	err := db.QueryRow(query, id).Scan(&article.Id, &article.Title, &article.Body, &article.Time)
+	id := getVariebleFromURL("id", r)
+	article, err := getArticleByID(id)
 	if err != nil {
 		w.WriteHeader(404)
 		if err == sql.ErrNoRows {
@@ -142,7 +155,6 @@ func handlerfuncArticlesShow(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "other failure!")
 		}
 	} else {
-		//fmt.Fprintln(w, article.id, article.title, article.body, article.time)
 		tmpl, err := template.ParseFiles("resources/views/articles/show.gohtml")
 		checkError(err)
 		err = tmpl.Execute(w, article)
@@ -172,6 +184,71 @@ func handlerfuncArticlesCreate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func handlerfuncArticlesEdit(w http.ResponseWriter, r *http.Request) {
+	//  URL:/articles/{id:[0-9]+}/edit
+	id := getVariebleFromURL("id", r)
+	article, err := getArticleByID(id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			w.WriteHeader(404)
+			fmt.Fprintln(w, "No article")
+		} else if err == sql.ErrConnDone {
+			w.WriteHeader(500)
+			fmt.Fprintln(w, "SQL connection err")
+		} else {
+			w.WriteHeader(500)
+			fmt.Fprintln(w, "other DB fail")
+		}
+	} else {
+		updateURL, _ := router.Get("articles.update").URL("id", id)
+		err_tag := make(map[string]string)
+		err_tag["title"] = ""
+		err_tag["body"] = ""
+		data := ArticlesFormData{Title: article.Title, Body: article.Body, URL: updateURL, Time: article.Time, Errors: err_tag, Id: article.Id}
+		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
+		checkError(err)
+		tmpl.Execute(w, data)
+		checkError(err)
+	}
+}
+
+func handlerfuncArticlesUpdate(w http.ResponseWriter, r *http.Request) {
+	id := getVariebleFromURL("id", r)
+	title := r.PostFormValue("title")
+	body := r.PostFormValue("body")
+	errorTag := validateArticleFormData(title, body)
+	if len(errorTag) == 0 {
+		query := "update articles set title=?,body=? where id=?"
+		exec, err := db.Exec(query, title, body, id)
+		//fmt.Println("1")
+		if err != nil {
+			//fmt.Println("2")
+			w.WriteHeader(500)
+			fmt.Fprintln(w, "DB failure in update")
+			checkError(err)
+			return
+		} else {
+			//fmt.Println("3")
+			rowAff, _ := exec.RowsAffected()
+			switch rowAff {
+			case 0:
+				fmt.Fprintln(w, "No any change")
+
+			case 1:
+				fmt.Fprintln(w, "change successful")
+
+			}
+		}
+	} else {
+		updateURL, _ := router.Get("articles.update").URL("id", id)
+		idNum, _ := strconv.Atoi(id)
+		data := ArticlesFormData{Title: title, Body: body, URL: updateURL, Time: "", Id: int64(idNum), Errors: errorTag}
+		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
+		checkError(err)
+		err = tmpl.Execute(w, data)
+		checkError(err)
+	}
+}
 func HtmlMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -253,6 +330,8 @@ func main() {
 	router.HandleFunc("/articles", handlerfuncArticlesIndex).Methods("GET").Name("articles.index")
 	router.HandleFunc("/articles", handlerfuncArticlesStore).Methods("POST").Name("articles.store")
 	router.HandleFunc("/articles/create", handlerfuncArticlesCreate).Methods("GET").Name("articles.create")
+	router.HandleFunc("/articles/{id:[0-9]+}/edit", handlerfuncArticlesEdit).Methods("GET").Name("articles.edit")
+	router.HandleFunc("/articles/{id:[0-9]+}", handlerfuncArticlesUpdate).Methods("POST").Name("articles.update")
 	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
 	router.Use(HtmlMiddleware)
 	//start server
