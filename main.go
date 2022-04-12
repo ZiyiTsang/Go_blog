@@ -42,6 +42,19 @@ func (a ArticlesData) Link() (URL string) {
 	checkError(err)
 	return u.String()
 }
+
+func (a ArticlesData) delete() (rowaffect int64, err error) {
+	deleteSem := "delete from articles where id=?"
+	exec, err := db.Exec(deleteSem, a.Id)
+	if err != nil {
+		return 0, err
+	}
+	affected, err := exec.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return affected, nil
+}
 func getVariebleFromURL(variable string, r *http.Request) string {
 	vars := mux.Vars(r)
 	return vars[variable]
@@ -166,6 +179,17 @@ func handlerfuncAbout(w http.ResponseWriter, r *http.Request) {
 func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "404")
 }
+func RouteName2URL(routerName string, para ...string) string {
+	url, err := router.Get(routerName).URL(para...)
+	if err != nil {
+		checkError(err)
+		return ""
+	}
+	return url.String()
+}
+func Int64ToString(a int64) string {
+	return strconv.FormatInt(a, 10)
+}
 func handlerfuncArticlesShow(w http.ResponseWriter, r *http.Request) {
 	id := getVariebleFromURL("id", r)
 	article, err := getArticleByID(id)
@@ -179,12 +203,15 @@ func handlerfuncArticlesShow(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "other failure!")
 		}
 	} else {
-		tmpl, err := template.ParseFiles("resources/views/articles/show.gohtml")
+		tmpl, err := template.New("show.gohtml").
+			Funcs(template.FuncMap{
+				"RouteName2URL": RouteName2URL,
+				"Int64ToString": Int64ToString,
+			}).ParseFiles("resources/views/articles/show.gohtml")
 		checkError(err)
 		err = tmpl.Execute(w, article)
 		checkError(err)
 	}
-
 }
 func handlerfuncArticlesCreate(w http.ResponseWriter, r *http.Request) {
 	storeURL, _ := router.Get("articles.store").URL()
@@ -273,6 +300,37 @@ func handlerfuncArticlesUpdate(w http.ResponseWriter, r *http.Request) {
 		checkError(err)
 	}
 }
+func handlerfuncArticlesDelete(w http.ResponseWriter, r *http.Request) {
+	id := getVariebleFromURL("id", r)
+	article, err := getArticleByID(id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			w.WriteHeader(500)
+			fmt.Fprint(w, "no such article")
+		} else if err == sql.ErrConnDone {
+			w.WriteHeader(500)
+			fmt.Fprint(w, "SQL connection done")
+		} else {
+			checkError(err)
+			w.WriteHeader(500)
+			fmt.Fprint(w, "unsolved problem")
+		}
+	} else {
+		rowaff, err := article.delete()
+		if err != nil {
+			checkError(err)
+		}
+		switch rowaff {
+		case 0:
+			w.WriteHeader(500)
+			fmt.Fprintln(w, "SQL no effect,should no happen")
+		case 1:
+			fmt.Fprintln(w, "Successful!")
+
+		}
+	}
+}
+
 func HtmlMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -356,6 +414,7 @@ func main() {
 	router.HandleFunc("/articles/create", handlerfuncArticlesCreate).Methods("GET").Name("articles.create")
 	router.HandleFunc("/articles/{id:[0-9]+}/edit", handlerfuncArticlesEdit).Methods("GET").Name("articles.edit")
 	router.HandleFunc("/articles/{id:[0-9]+}", handlerfuncArticlesUpdate).Methods("POST").Name("articles.update")
+	router.HandleFunc("/articles/{id:[0-9]+}/delete", handlerfuncArticlesDelete).Methods("POST").Name("articles.delete")
 	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
 	router.Use(HtmlMiddleware)
 	//start server

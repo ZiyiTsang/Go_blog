@@ -11,5 +11,10 @@
 <p>title： {{ .Title }}</p>
 <p>article：{{ .Body }}</p>
 <p>time：{{ .Time }}</p>
+{{/* 构建删除按钮  */}}
+    {{ $idString := Int64ToString .Id  }}
+    <form action="{{ RouteName2URL "articles.delete" "id" $idString }}" method="post">
+        <button type="submit" onclick="return confirm('Delete irreversible,Are you sure to continue?')">删除</button>
+    </form>
 </body>
 </html>
