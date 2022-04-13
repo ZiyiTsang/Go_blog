@@ -56,10 +56,7 @@ func (a ArticlesData) delete() (rowaffect int64, err error) {
 	}
 	return affected, nil
 }
-func getVariebleFromURL(variable string, r *http.Request) string {
-	vars := mux.Vars(r)
-	return vars[variable]
-}
+
 func getArticleByID(id string) (ArticlesData, error) {
 	query := "select * from articles where id=?"
 	article := ArticlesData{}
@@ -185,7 +182,7 @@ func Int64ToString(a int64) string {
 	return strconv.FormatInt(a, 10)
 }
 func handlerfuncArticlesShow(w http.ResponseWriter, r *http.Request) {
-	id := getVariebleFromURL("id", r)
+	id := route.GetVariebleFromURL("id", r)
 	article, err := getArticleByID(id)
 	if err != nil {
 		w.WriteHeader(404)
@@ -231,7 +228,7 @@ func handlerfuncArticlesCreate(w http.ResponseWriter, r *http.Request) {
 
 func handlerfuncArticlesEdit(w http.ResponseWriter, r *http.Request) {
 	//  URL:/articles/{id:[0-9]+}/edit
-	id := getVariebleFromURL("id", r)
+	id := route.GetVariebleFromURL("id", r)
 	article, err := getArticleByID(id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -258,7 +255,7 @@ func handlerfuncArticlesEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlerfuncArticlesUpdate(w http.ResponseWriter, r *http.Request) {
-	id := getVariebleFromURL("id", r)
+	id := route.GetVariebleFromURL("id", r)
 	title := r.PostFormValue("title")
 	body := r.PostFormValue("body")
 	errorTag := validateArticleFormData(title, body)
@@ -295,7 +292,7 @@ func handlerfuncArticlesUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func handlerfuncArticlesDelete(w http.ResponseWriter, r *http.Request) {
-	id := getVariebleFromURL("id", r)
+	id := route.GetVariebleFromURL("id", r)
 	article, err := getArticleByID(id)
 	if err != nil {
 		if err == sql.ErrNoRows {
