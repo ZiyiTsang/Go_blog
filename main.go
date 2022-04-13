@@ -1,7 +1,9 @@
 package main
 
 import (
+	"Go_blog/pkg/logTool"
 	"Go_blog/pkg/route"
+	"Go_blog/pkg/typesTool"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -9,7 +11,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/zalando/go-keyring"
 	"html/template"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -40,7 +41,7 @@ type ArticlesData struct {
 
 func (a ArticlesData) Link() (URL string) {
 	u, err := router.Get("article.show").URL("id", strconv.Itoa(int(a.Id)))
-	checkError(err)
+	logTool.CheckError(err)
 	return u.String()
 }
 
@@ -88,22 +89,22 @@ func handlerfuncArticlesIndex(w http.ResponseWriter, r *http.Request) {
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			checkError(err)
+			logTool.CheckError(err)
 		}
 	}(rows)
-	checkError(err)
+	logTool.CheckError(err)
 	articles := make([]ArticlesData, 0, 10)
 	for rows.Next() {
 		article := ArticlesData{}
 		err := rows.Scan(&article.Id, &article.Title, &article.Body, &article.Time)
-		checkError(err)
+		logTool.CheckError(err)
 		articles = append(articles, article)
 	}
 	err = rows.Err()
-	checkError(err)
+	logTool.CheckError(err)
 	tmpl, _ := template.ParseFiles("resources/views/articles/index.gohtml")
 	err = tmpl.Execute(w, articles)
-	checkError(err)
+	logTool.CheckError(err)
 
 }
 
@@ -142,14 +143,14 @@ func handlerfuncArticlesStore(w http.ResponseWriter, r *http.Request) {
 	if len(errorTag) == 0 {
 		_, err := fmt.Fprintln(w, "Correct Input data!")
 		if err != nil {
-			checkError(err)
+			logTool.CheckError(err)
 		}
 		var increateId int64
 		increateId, err = saveArticleToDB(title, body)
 		if err != nil {
 			w.WriteHeader(500)
 			fmt.Fprint(w, "SQL error!")
-			checkError(err)
+			logTool.CheckError(err)
 		}
 		fmt.Fprintf(w, "insert seccuess full!id=%d\n", increateId)
 	} else {
@@ -178,9 +179,6 @@ func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "404")
 }
 
-func Int64ToString(a int64) string {
-	return strconv.FormatInt(a, 10)
-}
 func handlerfuncArticlesShow(w http.ResponseWriter, r *http.Request) {
 	id := route.GetVariebleFromURL("id", r)
 	article, err := getArticleByID(id)
@@ -197,11 +195,11 @@ func handlerfuncArticlesShow(w http.ResponseWriter, r *http.Request) {
 		tmpl, err := template.New("show.gohtml").
 			Funcs(template.FuncMap{
 				"RouteName2URL": route.RouteName2URL,
-				"Int64ToString": Int64ToString,
+				"Int64ToString": typesTool.Int64ToString,
 			}).ParseFiles("resources/views/articles/show.gohtml")
-		checkError(err)
+		logTool.CheckError(err)
 		err = tmpl.Execute(w, article)
-		checkError(err)
+		logTool.CheckError(err)
 	}
 }
 func handlerfuncArticlesCreate(w http.ResponseWriter, r *http.Request) {
@@ -248,9 +246,9 @@ func handlerfuncArticlesEdit(w http.ResponseWriter, r *http.Request) {
 		err_tag["body"] = ""
 		data := ArticlesFormData{Title: article.Title, Body: article.Body, URL: updateURL, Time: article.Time, Errors: err_tag, Id: article.Id}
 		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
-		checkError(err)
+		logTool.CheckError(err)
 		tmpl.Execute(w, data)
-		checkError(err)
+		logTool.CheckError(err)
 	}
 }
 
@@ -267,7 +265,7 @@ func handlerfuncArticlesUpdate(w http.ResponseWriter, r *http.Request) {
 			//fmt.Println("2")
 			w.WriteHeader(500)
 			fmt.Fprintln(w, "DB failure in update")
-			checkError(err)
+			logTool.CheckError(err)
 			return
 		} else {
 			//fmt.Println("3")
@@ -286,9 +284,9 @@ func handlerfuncArticlesUpdate(w http.ResponseWriter, r *http.Request) {
 		idNum, _ := strconv.Atoi(id)
 		data := ArticlesFormData{Title: title, Body: body, URL: updateURL, Time: "", Id: int64(idNum), Errors: errorTag}
 		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
-		checkError(err)
+		logTool.CheckError(err)
 		err = tmpl.Execute(w, data)
-		checkError(err)
+		logTool.CheckError(err)
 	}
 }
 func handlerfuncArticlesDelete(w http.ResponseWriter, r *http.Request) {
@@ -302,14 +300,14 @@ func handlerfuncArticlesDelete(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(500)
 			fmt.Fprint(w, "SQL connection done")
 		} else {
-			checkError(err)
+			logTool.CheckError(err)
 			w.WriteHeader(500)
 			fmt.Fprint(w, "unsolved problem")
 		}
 	} else {
 		rowaff, err := article.delete()
 		if err != nil {
-			checkError(err)
+			logTool.CheckError(err)
 		}
 		switch rowaff {
 		case 0:
@@ -336,17 +334,13 @@ func removeTrailingslash(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-func checkError(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
+
 func initDB() {
 	var err error
 	mysqlPasswd, err := keyring.Get("mysql", "root")
-	checkError(err)
+	logTool.CheckError(err)
 	mysqlAddress, err := keyring.Get("mysql", "address")
-	checkError(err)
+	logTool.CheckError(err)
 	config := mysql.Config{
 		User:                 "root",
 		Passwd:               mysqlPasswd,
@@ -358,7 +352,7 @@ func initDB() {
 		CheckConnLiveness:    true,
 	}
 	db, err = sql.Open("mysql", config.FormatDSN())
-	checkError(err)
+	logTool.CheckError(err)
 	//my mySQL "wait_timeout" shows "7200"(s)=2hour,I set same as it did..
 	db.SetConnMaxLifetime(2 * time.Hour)
 	//my mySQL "max_connections" shows 2520,so I set 2000 here..
@@ -366,7 +360,7 @@ func initDB() {
 	//I think it is ok for more than 10..
 	db.SetMaxIdleConns(40)
 	err = db.Ping()
-	checkError(err)
+	logTool.CheckError(err)
 	fmt.Println("init DB successful")
 }
 
