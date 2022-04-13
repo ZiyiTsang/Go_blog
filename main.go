@@ -1,6 +1,7 @@
 package main
 
 import (
+	"Go_blog/pkg/route"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -179,14 +180,7 @@ func handlerfuncAbout(w http.ResponseWriter, r *http.Request) {
 func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "404")
 }
-func RouteName2URL(routerName string, para ...string) string {
-	url, err := router.Get(routerName).URL(para...)
-	if err != nil {
-		checkError(err)
-		return ""
-	}
-	return url.String()
-}
+
 func Int64ToString(a int64) string {
 	return strconv.FormatInt(a, 10)
 }
@@ -205,7 +199,7 @@ func handlerfuncArticlesShow(w http.ResponseWriter, r *http.Request) {
 	} else {
 		tmpl, err := template.New("show.gohtml").
 			Funcs(template.FuncMap{
-				"RouteName2URL": RouteName2URL,
+				"RouteName2URL": route.RouteName2URL,
 				"Int64ToString": Int64ToString,
 			}).ParseFiles("resources/views/articles/show.gohtml")
 		checkError(err)
