@@ -1,15 +1,14 @@
 package main
 
 import (
+	"Go_blog/pkg/DBTool"
 	"Go_blog/pkg/logTool"
 	"Go_blog/pkg/route"
 	"Go_blog/pkg/typesTool"
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
-	"github.com/zalando/go-keyring"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -17,11 +16,10 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 )
 
-var router = mux.NewRouter()
+var router *mux.Router
 var db *sql.DB
 
 type ArticlesFormData struct {
@@ -335,35 +333,6 @@ func removeTrailingslash(next http.Handler) http.Handler {
 	})
 }
 
-func initDB() {
-	var err error
-	mysqlPasswd, err := keyring.Get("mysql", "root")
-	logTool.CheckError(err)
-	mysqlAddress, err := keyring.Get("mysql", "address")
-	logTool.CheckError(err)
-	config := mysql.Config{
-		User:                 "root",
-		Passwd:               mysqlPasswd,
-		Addr:                 mysqlAddress,
-		Net:                  "tcp",
-		DBName:               "go_blog",
-		AllowNativePasswords: true,
-		Timeout:              time.Hour * 2,
-		CheckConnLiveness:    true,
-	}
-	db, err = sql.Open("mysql", config.FormatDSN())
-	logTool.CheckError(err)
-	//my mySQL "wait_timeout" shows "7200"(s)=2hour,I set same as it did..
-	db.SetConnMaxLifetime(2 * time.Hour)
-	//my mySQL "max_connections" shows 2520,so I set 2000 here..
-	db.SetMaxOpenConns(1000)
-	//I think it is ok for more than 10..
-	db.SetMaxIdleConns(40)
-	err = db.Ping()
-	logTool.CheckError(err)
-	fmt.Println("init DB successful")
-}
-
 func main() {
 	defer func() {
 		err := recover()
@@ -381,7 +350,10 @@ func main() {
 		fmt.Println("Thank you for using!")
 		os.Exit(0)
 	}()
-	initDB()
+	route.Initialize()
+	router = route.Router
+	DBTool.Initialize()
+	db = DBTool.DB
 	defer func(db *sql.DB) {
 		err := db.Close()
 		if err != nil {
