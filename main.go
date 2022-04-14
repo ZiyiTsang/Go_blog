@@ -77,10 +77,7 @@ func validateArticleFormData(title string, body string) map[string]string {
 	}
 	return e
 }
-func handlerfuncRoot(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Fprint(w, "<h1>Hello, this is ZIYI's personal Goblog</h1>")
-}
 func handlerfuncArticlesIndex(w http.ResponseWriter, r *http.Request) {
 	query := "select * from articles"
 	rows, err := db.Query(query)
@@ -170,11 +167,8 @@ func handlerfuncArticlesStore(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handlerfuncAbout(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "I am Ziyi Tsang,please contact me at:1034337098@qq.com")
-}
 func notFoundHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "404")
+
 }
 
 func handlerfuncArticlesShow(w http.ResponseWriter, r *http.Request) {
@@ -361,10 +355,8 @@ func main() {
 			os.Exit(-1)
 		}
 	}(db)
-	//create relation between address and handle_function
+
 	fmt.Println("create handle function")
-	router.HandleFunc("/", handlerfuncRoot).Methods("Get").Name("home")
-	router.HandleFunc("/about", handlerfuncAbout).Methods("Get").Name("about")
 	router.HandleFunc("/articles/{id:[0-9]+}", handlerfuncArticlesShow).Methods("Get").Name("article.show")
 	router.HandleFunc("/articles", handlerfuncArticlesIndex).Methods("GET").Name("articles.index")
 	router.HandleFunc("/articles", handlerfuncArticlesStore).Methods("POST").Name("articles.store")
@@ -372,7 +364,7 @@ func main() {
 	router.HandleFunc("/articles/{id:[0-9]+}/edit", handlerfuncArticlesEdit).Methods("GET").Name("articles.edit")
 	router.HandleFunc("/articles/{id:[0-9]+}", handlerfuncArticlesUpdate).Methods("POST").Name("articles.update")
 	router.HandleFunc("/articles/{id:[0-9]+}/delete", handlerfuncArticlesDelete).Methods("POST").Name("articles.delete")
-	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
+	//router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
 	router.Use(HtmlMiddleware)
 	//start server
 	fmt.Println("start server and listening")
