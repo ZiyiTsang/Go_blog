@@ -1,20 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <title>article</title>
-    <style type="text/css">.error {
+    <title>{{ .Title }} —— 我的技术博客</title>
+    <style type="text/css">
+        .error {
             color: red;
-        }</style>
+        }
+    </style>
 </head>
+
 <body>
-<p>ID： {{ .Id }}</p>
-<p>title： {{ .Title }}</p>
-<p>article：{{ .Body }}</p>
-<p>time：{{ .Time }}</p>
-{{/* 构建删除按钮  */}}
-    {{ $idString := Int64ToString .Id  }}
+    <p>ID： {{ .ID }}</p>
+    <p>title： {{ .Title }}</p>
+    <p>content：{{ .Body }}</p>
+    <p>time：{{ .Time }}</p>
+    {{/* 构建删除按钮  */}}
+    {{ $idString := Int64ToString .ID  }}
     <form action="{{ RouteName2URL "articles.delete" "id" $idString }}" method="post">
-        <button type="submit" onclick="return confirm('Delete irreversible,Are you sure to continue?')">删除</button>
+        <button type="submit">删除</button>
     </form>
+
 </body>
+
 </html>

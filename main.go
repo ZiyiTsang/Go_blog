@@ -1,10 +1,9 @@
 package main
 
 import (
+	"Go_blog/bootstrap"
 	"Go_blog/pkg/DBTool"
 	"Go_blog/pkg/logTool"
-	"Go_blog/pkg/route"
-	"Go_blog/pkg/typesTool"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -21,6 +20,11 @@ import (
 
 var router *mux.Router
 var db *sql.DB
+
+func getVariebleFromURL(variable string, r *http.Request) string {
+	vars := mux.Vars(r)
+	return vars[variable]
+}
 
 type ArticlesFormData struct {
 	Title  string
@@ -72,7 +76,7 @@ func validateArticleFormData(title string, body string) map[string]string {
 
 	if body == "" {
 		e["body"] = "content cannot be empty"
-	} else if utf8.RuneCountInString(body) < 10 || utf8.RuneCountInString(body) < 500 {
+	} else if utf8.RuneCountInString(body) < 10 || utf8.RuneCountInString(body) > 500 {
 		e["body"] = "content should within 10-500 character"
 	}
 	return e
@@ -167,33 +171,6 @@ func handlerfuncArticlesStore(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func notFoundHandler(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func handlerfuncArticlesShow(w http.ResponseWriter, r *http.Request) {
-	id := route.GetVariebleFromURL("id", r)
-	article, err := getArticleByID(id)
-	if err != nil {
-		w.WriteHeader(404)
-		if err == sql.ErrNoRows {
-			fmt.Fprintln(w, "no such article!")
-		} else if err == sql.ErrConnDone {
-			fmt.Fprintln(w, "DB connection failure!")
-		} else {
-			fmt.Fprintln(w, "other failure!")
-		}
-	} else {
-		tmpl, err := template.New("show.gohtml").
-			Funcs(template.FuncMap{
-				"RouteName2URL": route.RouteName2URL,
-				"Int64ToString": typesTool.Int64ToString,
-			}).ParseFiles("resources/views/articles/show.gohtml")
-		logTool.CheckError(err)
-		err = tmpl.Execute(w, article)
-		logTool.CheckError(err)
-	}
-}
 func handlerfuncArticlesCreate(w http.ResponseWriter, r *http.Request) {
 	storeURL, _ := router.Get("articles.store").URL()
 	errTag := make(map[string]string)
@@ -218,7 +195,7 @@ func handlerfuncArticlesCreate(w http.ResponseWriter, r *http.Request) {
 
 func handlerfuncArticlesEdit(w http.ResponseWriter, r *http.Request) {
 	//  URL:/articles/{id:[0-9]+}/edit
-	id := route.GetVariebleFromURL("id", r)
+	id := getVariebleFromURL("id", r)
 	article, err := getArticleByID(id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -245,9 +222,10 @@ func handlerfuncArticlesEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlerfuncArticlesUpdate(w http.ResponseWriter, r *http.Request) {
-	id := route.GetVariebleFromURL("id", r)
+	id := getVariebleFromURL("id", r)
 	title := r.PostFormValue("title")
 	body := r.PostFormValue("body")
+
 	errorTag := validateArticleFormData(title, body)
 	if len(errorTag) == 0 {
 		query := "update articles set title=?,body=? where id=?"
@@ -282,7 +260,7 @@ func handlerfuncArticlesUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func handlerfuncArticlesDelete(w http.ResponseWriter, r *http.Request) {
-	id := route.GetVariebleFromURL("id", r)
+	id := getVariebleFromURL("id", r)
 	article, err := getArticleByID(id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -344,10 +322,11 @@ func main() {
 		fmt.Println("Thank you for using!")
 		os.Exit(0)
 	}()
-	route.Initialize()
-	router = route.Router
+
 	DBTool.Initialize()
 	db = DBTool.DB
+	bootstrap.SetupDB()
+	router = bootstrap.SetupRoute()
 	defer func(db *sql.DB) {
 		err := db.Close()
 		if err != nil {
@@ -357,14 +336,13 @@ func main() {
 	}(db)
 
 	fmt.Println("create handle function")
-	router.HandleFunc("/articles/{id:[0-9]+}", handlerfuncArticlesShow).Methods("Get").Name("article.show")
 	router.HandleFunc("/articles", handlerfuncArticlesIndex).Methods("GET").Name("articles.index")
 	router.HandleFunc("/articles", handlerfuncArticlesStore).Methods("POST").Name("articles.store")
 	router.HandleFunc("/articles/create", handlerfuncArticlesCreate).Methods("GET").Name("articles.create")
 	router.HandleFunc("/articles/{id:[0-9]+}/edit", handlerfuncArticlesEdit).Methods("GET").Name("articles.edit")
 	router.HandleFunc("/articles/{id:[0-9]+}", handlerfuncArticlesUpdate).Methods("POST").Name("articles.update")
 	router.HandleFunc("/articles/{id:[0-9]+}/delete", handlerfuncArticlesDelete).Methods("POST").Name("articles.delete")
-	//router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
+
 	router.Use(HtmlMiddleware)
 	//start server
 	fmt.Println("start server and listening")
