@@ -21,3 +21,12 @@ func GetAll() ([]Article, error) {
 	}
 	return articles, nil
 }
+
+func (a Article) CreateWithTitleBody() (int64, error) {
+	t_obj := model.DB.Exec("insert into articles(title,body,time) VALUES (?,?,now())", a.Title, a.Body)
+	row := t_obj.RowsAffected
+	if err := t_obj.Error; err != nil {
+		return 0, err
+	}
+	return row, nil
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"Go_blog/app/http/controllers"
 	"Go_blog/bootstrap"
 	"Go_blog/pkg/DBTool"
 	"Go_blog/pkg/logTool"
@@ -15,7 +16,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 )
 
 var router *mux.Router
@@ -66,21 +66,6 @@ func getArticleByID(id string) (ArticlesData, error) {
 	err := db.QueryRow(query, id).Scan(&article.Id, &article.Title, &article.Body, &article.Time)
 	return article, err
 }
-func validateArticleFormData(title string, body string) map[string]string {
-	e := make(map[string]string)
-	if title == "" {
-		e["title"] = "title can not be empty"
-	} else if utf8.RuneCountInString(title) < 3 || utf8.RuneCountInString(title) > 40 {
-		e["title"] = "title should within 3-40 character"
-	}
-
-	if body == "" {
-		e["body"] = "content cannot be empty"
-	} else if utf8.RuneCountInString(body) < 10 || utf8.RuneCountInString(body) > 500 {
-		e["body"] = "content should within 10-500 character"
-	}
-	return e
-}
 
 func saveArticleToDB(title string, body string) (int64, error) {
 	var (
@@ -106,67 +91,6 @@ func saveArticleToDB(title string, body string) (int64, error) {
 	}
 	return id, nil
 }
-func handlerfuncArticlesStore(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
-	if err != nil {
-		fmt.Fprint(w, "something err in post")
-	}
-	title := r.PostFormValue("title")
-	body := r.PostFormValue("body")
-	errorTag := validateArticleFormData(title, body)
-	if len(errorTag) == 0 {
-		_, err := fmt.Fprintln(w, "Correct Input data!")
-		if err != nil {
-			logTool.CheckError(err)
-		}
-		var increateId int64
-		increateId, err = saveArticleToDB(title, body)
-		if err != nil {
-			w.WriteHeader(500)
-			fmt.Fprint(w, "SQL error!")
-			logTool.CheckError(err)
-		}
-		fmt.Fprintf(w, "insert seccuess full!id=%d\n", increateId)
-	} else {
-		storeURL, _ := router.Get("articles.store").URL()
-		data := ArticlesFormData{
-			Title:  title,
-			Body:   body,
-			URL:    storeURL,
-			Errors: errorTag,
-		}
-		tmpl, err := template.ParseFiles("resources/views/articles/create.gohtml")
-		if err != nil {
-			panic(err)
-		}
-		err = tmpl.Execute(w, data)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
-func handlerfuncArticlesCreate(w http.ResponseWriter, r *http.Request) {
-	storeURL, _ := router.Get("articles.store").URL()
-	errTag := make(map[string]string)
-	errTag["title"] = ""
-	errTag["body"] = ""
-	data := ArticlesFormData{
-		Title:  "",
-		Body:   "",
-		URL:    storeURL,
-		Errors: errTag,
-	}
-	tmpl, err := template.ParseFiles("resources/views/articles/create.gohtml")
-	if err != nil {
-		panic(err)
-	}
-
-	err = tmpl.Execute(w, data)
-	if err != nil {
-		panic(err)
-	}
-}
 
 func handlerfuncArticlesEdit(w http.ResponseWriter, r *http.Request) {
 	//  URL:/articles/{id:[0-9]+}/edit
@@ -175,13 +99,22 @@ func handlerfuncArticlesEdit(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			w.WriteHeader(404)
-			fmt.Fprintln(w, "No article")
+			_, err := fmt.Fprintln(w, "No article")
+			if err != nil {
+				logTool.CheckError(err)
+			}
 		} else if err == sql.ErrConnDone {
 			w.WriteHeader(500)
-			fmt.Fprintln(w, "SQL connection err")
+			_, err := fmt.Fprintln(w, "SQL connection err")
+			if err != nil {
+				logTool.CheckError(err)
+			}
 		} else {
 			w.WriteHeader(500)
-			fmt.Fprintln(w, "other DB fail")
+			_, err := fmt.Fprintln(w, "other DB fail")
+			if err != nil {
+				logTool.CheckError(err)
+			}
 		}
 	} else {
 		updateURL, _ := router.Get("articles.update").URL("id", id)
@@ -191,7 +124,10 @@ func handlerfuncArticlesEdit(w http.ResponseWriter, r *http.Request) {
 		data := ArticlesFormData{Title: article.Title, Body: article.Body, URL: updateURL, Time: article.Time, Errors: err_tag, Id: article.Id}
 		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
 		logTool.CheckError(err)
-		tmpl.Execute(w, data)
+		err = tmpl.Execute(w, data)
+		if err != nil {
+			logTool.CheckError(err)
+		}
 		logTool.CheckError(err)
 	}
 }
@@ -201,7 +137,7 @@ func handlerfuncArticlesUpdate(w http.ResponseWriter, r *http.Request) {
 	title := r.PostFormValue("title")
 	body := r.PostFormValue("body")
 
-	errorTag := validateArticleFormData(title, body)
+	errorTag := controllers.ValidateArticleFormData(title, body)
 	if len(errorTag) == 0 {
 		query := "update articles set title=?,body=? where id=?"
 		exec, err := db.Exec(query, title, body, id)
@@ -209,7 +145,10 @@ func handlerfuncArticlesUpdate(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			//fmt.Println("2")
 			w.WriteHeader(500)
-			fmt.Fprintln(w, "DB failure in update")
+			_, err := fmt.Fprintln(w, "DB failure in update")
+			if err != nil {
+				logTool.CheckError(err)
+			}
 			logTool.CheckError(err)
 			return
 		} else {
@@ -217,11 +156,15 @@ func handlerfuncArticlesUpdate(w http.ResponseWriter, r *http.Request) {
 			rowAff, _ := exec.RowsAffected()
 			switch rowAff {
 			case 0:
-				fmt.Fprintln(w, "No any change")
-
+				_, err := fmt.Fprintln(w, "No any change")
+				if err != nil {
+					logTool.CheckError(err)
+				}
 			case 1:
-				fmt.Fprintln(w, "change successful")
-
+				_, err := fmt.Fprintln(w, "change successful")
+				if err != nil {
+					logTool.CheckError(err)
+				}
 			}
 		}
 	} else {
@@ -240,14 +183,23 @@ func handlerfuncArticlesDelete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			w.WriteHeader(500)
-			fmt.Fprint(w, "no such article")
+			_, err := fmt.Fprint(w, "no such article")
+			if err != nil {
+				return
+			}
 		} else if err == sql.ErrConnDone {
 			w.WriteHeader(500)
-			fmt.Fprint(w, "SQL connection done")
+			_, err := fmt.Fprint(w, "SQL connection done")
+			if err != nil {
+				logTool.CheckError(err)
+			}
 		} else {
 			logTool.CheckError(err)
 			w.WriteHeader(500)
-			fmt.Fprint(w, "unsolved problem")
+			_, err := fmt.Fprint(w, "unsolved problem")
+			if err != nil {
+				return
+			}
 		}
 	} else {
 		rowaff, err := article.delete()
@@ -257,9 +209,15 @@ func handlerfuncArticlesDelete(w http.ResponseWriter, r *http.Request) {
 		switch rowaff {
 		case 0:
 			w.WriteHeader(500)
-			fmt.Fprintln(w, "SQL no effect,should no happen")
+			_, err := fmt.Fprintln(w, "SQL no effect,should no happen")
+			if err != nil {
+				return
+			}
 		case 1:
-			fmt.Fprintln(w, "Successful!")
+			_, err := fmt.Fprintln(w, "Successful!")
+			if err != nil {
+				return
+			}
 
 		}
 	}
@@ -312,8 +270,6 @@ func main() {
 
 	fmt.Println("create handle function")
 
-	router.HandleFunc("/articles", handlerfuncArticlesStore).Methods("POST").Name("articles.store")
-	router.HandleFunc("/articles/create", handlerfuncArticlesCreate).Methods("GET").Name("articles.create")
 	router.HandleFunc("/articles/{id:[0-9]+}/edit", handlerfuncArticlesEdit).Methods("GET").Name("articles.edit")
 	router.HandleFunc("/articles/{id:[0-9]+}", handlerfuncArticlesUpdate).Methods("POST").Name("articles.update")
 	router.HandleFunc("/articles/{id:[0-9]+}/delete", handlerfuncArticlesDelete).Methods("POST").Name("articles.delete")
