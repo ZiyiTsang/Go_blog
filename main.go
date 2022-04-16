@@ -1,7 +1,6 @@
 package main
 
 import (
-	"Go_blog/app/http/controllers"
 	"Go_blog/bootstrap"
 	"Go_blog/pkg/DBTool"
 	"Go_blog/pkg/logTool"
@@ -9,12 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
-	"html/template"
 	"net/http"
 	"net/url"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 )
 
@@ -92,91 +89,6 @@ func saveArticleToDB(title string, body string) (int64, error) {
 	return id, nil
 }
 
-func handlerfuncArticlesEdit(w http.ResponseWriter, r *http.Request) {
-	//  URL:/articles/{id:[0-9]+}/edit
-	id := getVariebleFromURL("id", r)
-	article, err := getArticleByID(id)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			w.WriteHeader(404)
-			_, err := fmt.Fprintln(w, "No article")
-			if err != nil {
-				logTool.CheckError(err)
-			}
-		} else if err == sql.ErrConnDone {
-			w.WriteHeader(500)
-			_, err := fmt.Fprintln(w, "SQL connection err")
-			if err != nil {
-				logTool.CheckError(err)
-			}
-		} else {
-			w.WriteHeader(500)
-			_, err := fmt.Fprintln(w, "other DB fail")
-			if err != nil {
-				logTool.CheckError(err)
-			}
-		}
-	} else {
-		updateURL, _ := router.Get("articles.update").URL("id", id)
-		err_tag := make(map[string]string)
-		err_tag["title"] = ""
-		err_tag["body"] = ""
-		data := ArticlesFormData{Title: article.Title, Body: article.Body, URL: updateURL, Time: article.Time, Errors: err_tag, Id: article.Id}
-		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
-		logTool.CheckError(err)
-		err = tmpl.Execute(w, data)
-		if err != nil {
-			logTool.CheckError(err)
-		}
-		logTool.CheckError(err)
-	}
-}
-
-func handlerfuncArticlesUpdate(w http.ResponseWriter, r *http.Request) {
-	id := getVariebleFromURL("id", r)
-	title := r.PostFormValue("title")
-	body := r.PostFormValue("body")
-
-	errorTag := controllers.ValidateArticleFormData(title, body)
-	if len(errorTag) == 0 {
-		query := "update articles set title=?,body=? where id=?"
-		exec, err := db.Exec(query, title, body, id)
-		//fmt.Println("1")
-		if err != nil {
-			//fmt.Println("2")
-			w.WriteHeader(500)
-			_, err := fmt.Fprintln(w, "DB failure in update")
-			if err != nil {
-				logTool.CheckError(err)
-			}
-			logTool.CheckError(err)
-			return
-		} else {
-			//fmt.Println("3")
-			rowAff, _ := exec.RowsAffected()
-			switch rowAff {
-			case 0:
-				_, err := fmt.Fprintln(w, "No any change")
-				if err != nil {
-					logTool.CheckError(err)
-				}
-			case 1:
-				_, err := fmt.Fprintln(w, "change successful")
-				if err != nil {
-					logTool.CheckError(err)
-				}
-			}
-		}
-	} else {
-		updateURL, _ := router.Get("articles.update").URL("id", id)
-		idNum, _ := strconv.Atoi(id)
-		data := ArticlesFormData{Title: title, Body: body, URL: updateURL, Time: "", Id: int64(idNum), Errors: errorTag}
-		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
-		logTool.CheckError(err)
-		err = tmpl.Execute(w, data)
-		logTool.CheckError(err)
-	}
-}
 func handlerfuncArticlesDelete(w http.ResponseWriter, r *http.Request) {
 	id := getVariebleFromURL("id", r)
 	article, err := getArticleByID(id)
@@ -270,8 +182,6 @@ func main() {
 
 	fmt.Println("create handle function")
 
-	router.HandleFunc("/articles/{id:[0-9]+}/edit", handlerfuncArticlesEdit).Methods("GET").Name("articles.edit")
-	router.HandleFunc("/articles/{id:[0-9]+}", handlerfuncArticlesUpdate).Methods("POST").Name("articles.update")
 	router.HandleFunc("/articles/{id:[0-9]+}/delete", handlerfuncArticlesDelete).Methods("POST").Name("articles.delete")
 
 	router.Use(HtmlMiddleware)

@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm"
 	"html/template"
 	"net/http"
+	"strconv"
+	"time"
 	"unicode/utf8"
 )
 
@@ -92,6 +94,8 @@ type ArticlesFormData struct {
 	Body   string
 	URL    string
 	Errors map[string]string
+	Time   string
+	ID     int64
 }
 
 func (*ArticlesController) Create(w http.ResponseWriter, r *http.Request) {
@@ -169,5 +173,79 @@ func (*ArticlesController) Store(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			panic(err)
 		}
+	}
+}
+func (*ArticlesController) Edit(w http.ResponseWriter, r *http.Request) {
+	id := route.GetVariebleFromURL("id", r)
+	article, err := article_pkg.Get(id)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			w.WriteHeader(404)
+			_, err := fmt.Fprintln(w, "No article")
+			if err != nil {
+				logTool.CheckError(err)
+			}
+		} else {
+			w.WriteHeader(500)
+			_, err := fmt.Fprintln(w, "other DB fail")
+			if err != nil {
+				logTool.CheckError(err)
+			}
+		}
+	} else {
+		updateURL := route.Name2URL("articles.update", "id", id)
+		err_tag := make(map[string]string)
+		err_tag["title"] = ""
+		err_tag["body"] = ""
+		data := ArticlesFormData{Title: article.Title, Body: article.Body, URL: updateURL, Time: article.Time, Errors: err_tag, ID: article.ID}
+		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
+		logTool.CheckError(err)
+		err = tmpl.Execute(w, data)
+		if err != nil {
+			logTool.CheckError(err)
+		}
+		logTool.CheckError(err)
+	}
+}
+func (*ArticlesController) Update(w http.ResponseWriter, r *http.Request) {
+
+	id := route.GetVariebleFromURL("id", r)
+	title := r.PostFormValue("title")
+	body := r.PostFormValue("body")
+	errorTag := ValidateArticleFormData(title, body)
+	article, _ := article_pkg.Get(id)
+	if len(errorTag) == 0 {
+		article.Time = time.Now().String()[0:19]
+		article.Title = title
+		article.Body = body
+		rowsAffected, err := article.Update()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err := fmt.Fprint(w, "update fail")
+			if err != nil {
+				logTool.CheckError(err)
+			}
+		} else {
+			if rowsAffected == 0 {
+				_, err := fmt.Fprint(w, "rowsAffected 0")
+				if err != nil {
+					logTool.CheckError(err)
+				}
+			}
+			_, err := fmt.Fprint(w, "success!")
+			if err != nil {
+				logTool.CheckError(err)
+			}
+		}
+	} else {
+
+		updateURL := route.Name2URL("articles.update", "id", id)
+
+		idNum, _ := strconv.Atoi(id)
+		data := ArticlesFormData{Title: title, Body: body, URL: updateURL, Time: "", ID: int64(idNum), Errors: errorTag}
+		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
+		logTool.CheckError(err)
+		err = tmpl.Execute(w, data)
+		logTool.CheckError(err)
 	}
 }

@@ -1,6 +1,7 @@
 package route
 
 import (
+	"Go_blog/pkg/logTool"
 	"github.com/gorilla/mux"
 	"net/http"
 )
@@ -13,8 +14,9 @@ func SetRoute(r *mux.Router) {
 func Name2URL(routeName string, pairs ...string) string {
 
 	url, err := route.Get(routeName).URL(pairs...)
+
 	if err != nil {
-		// checkError(err)
+		logTool.CheckError(err)
 		return ""
 	}
 	return url.String()
