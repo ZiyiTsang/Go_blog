@@ -249,3 +249,44 @@ func (*ArticlesController) Update(w http.ResponseWriter, r *http.Request) {
 		logTool.CheckError(err)
 	}
 }
+
+// Delete 删除文章
+func (*ArticlesController) Delete(w http.ResponseWriter, r *http.Request) {
+	id := route.GetVariebleFromURL("id", r)
+	article, err := article_pkg.Get(id)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			w.WriteHeader(404)
+			_, err := fmt.Fprint(w, "no such article")
+			if err != nil {
+				return
+			}
+		} else {
+			logTool.CheckError(err)
+			w.WriteHeader(500)
+			_, err := fmt.Fprint(w, "unsolved problem")
+			if err != nil {
+				return
+			}
+		}
+	} else {
+		roweff, err := article.Delete()
+		if err != nil {
+			logTool.CheckError(err)
+		}
+		switch roweff {
+		case 0:
+			w.WriteHeader(500)
+			_, err := fmt.Fprintln(w, "SQL no effect,should no happen")
+			if err != nil {
+				return
+			}
+		case 1:
+			_, err := fmt.Fprintln(w, "Successful!")
+			if err != nil {
+				return
+			}
+
+		}
+	}
+}

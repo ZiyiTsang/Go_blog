@@ -2,10 +2,8 @@ package main
 
 import (
 	"Go_blog/bootstrap"
-	"Go_blog/pkg/DBTool"
 	"Go_blog/pkg/logTool"
 	"database/sql"
-	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
@@ -17,11 +15,6 @@ import (
 
 var router *mux.Router
 var db *sql.DB
-
-func getVariebleFromURL(variable string, r *http.Request) string {
-	vars := mux.Vars(r)
-	return vars[variable]
-}
 
 type ArticlesFormData struct {
 	Title  string
@@ -57,84 +50,6 @@ func (a ArticlesData) delete() (rowaffect int64, err error) {
 	return affected, nil
 }
 
-func getArticleByID(id string) (ArticlesData, error) {
-	query := "select * from articles where id=?"
-	article := ArticlesData{}
-	err := db.QueryRow(query, id).Scan(&article.Id, &article.Title, &article.Body, &article.Time)
-	return article, err
-}
-
-func saveArticleToDB(title string, body string) (int64, error) {
-	var (
-		id        int64
-		err       error
-		result    sql.Result
-		statement *sql.Stmt
-	)
-	statement, err = db.Prepare("insert into articles(title, body,time) VALUES (?,?,now())")
-	if err != nil {
-		return 0, err
-	}
-	result, err = statement.Exec(title, body)
-	if err != nil {
-		return 0, err
-	}
-	id, err = result.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
-	if id <= 0 {
-		return 0, errors.New("id<=0")
-	}
-	return id, nil
-}
-
-func handlerfuncArticlesDelete(w http.ResponseWriter, r *http.Request) {
-	id := getVariebleFromURL("id", r)
-	article, err := getArticleByID(id)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			w.WriteHeader(500)
-			_, err := fmt.Fprint(w, "no such article")
-			if err != nil {
-				return
-			}
-		} else if err == sql.ErrConnDone {
-			w.WriteHeader(500)
-			_, err := fmt.Fprint(w, "SQL connection done")
-			if err != nil {
-				logTool.CheckError(err)
-			}
-		} else {
-			logTool.CheckError(err)
-			w.WriteHeader(500)
-			_, err := fmt.Fprint(w, "unsolved problem")
-			if err != nil {
-				return
-			}
-		}
-	} else {
-		rowaff, err := article.delete()
-		if err != nil {
-			logTool.CheckError(err)
-		}
-		switch rowaff {
-		case 0:
-			w.WriteHeader(500)
-			_, err := fmt.Fprintln(w, "SQL no effect,should no happen")
-			if err != nil {
-				return
-			}
-		case 1:
-			_, err := fmt.Fprintln(w, "Successful!")
-			if err != nil {
-				return
-			}
-
-		}
-	}
-}
-
 func HtmlMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -151,6 +66,7 @@ func removeTrailingslash(next http.Handler) http.Handler {
 }
 
 func main() {
+
 	defer func() {
 		err := recover()
 		if err != nil {
@@ -167,9 +83,9 @@ func main() {
 		fmt.Println("Thank you for using!")
 		os.Exit(0)
 	}()
-
-	DBTool.Initialize()
-	db = DBTool.DB
+	fmt.Println("initiating...")
+	//DBTool.Initialize()
+	//db = DBTool.DB
 	bootstrap.SetupDB()
 	router = bootstrap.SetupRoute()
 	defer func(db *sql.DB) {
@@ -179,17 +95,28 @@ func main() {
 			os.Exit(-1)
 		}
 	}(db)
-
-	fmt.Println("create handle function")
-
-	router.HandleFunc("/articles/{id:[0-9]+}/delete", handlerfuncArticlesDelete).Methods("POST").Name("articles.delete")
-
 	router.Use(HtmlMiddleware)
-	//start server
-	fmt.Println("start server and listening")
-	err := http.ListenAndServe(":3000", removeTrailingslash(router))
-	if err != nil {
-		panic(err)
-	}
 
+	go func() {
+		err := http.ListenAndServe(":3000", removeTrailingslash(router))
+		panic(err)
+	}()
+	var choose string
+	for {
+		out := 0
+		fmt.Println("Do you want to exit?")
+		_, err := fmt.Scan(&choose)
+		if err != nil {
+			logTool.CheckError(err)
+		}
+		switch choose {
+		case "0":
+			out = 1
+		default:
+			fmt.Println("input again")
+		}
+		if out == 1 {
+			break
+		}
+	}
 }

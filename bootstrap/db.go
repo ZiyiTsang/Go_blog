@@ -2,12 +2,13 @@ package bootstrap
 
 import (
 	"Go_blog/pkg/model"
+	"fmt"
 	"time"
 )
 
 // SetupDB 初始化数据库和 ORM
 func SetupDB() {
-
+	fmt.Println("initiate DB...")
 	// 建立数据库连接池
 	db := model.ConnectDB()
 

@@ -46,6 +46,14 @@ func (article *Article) Update() (rowsAffected int64, err error) {
 		logTool.CheckError(err)
 		return 0, err
 	}
+	return result.RowsAffected, nil
+}
+func (article Article) Delete() (rowsAffected int64, err error) {
+	result := model.DB.Delete(&article)
+	if err = result.Error; err != nil {
+		logTool.CheckError(err)
+		return 0, err
+	}
 
 	return result.RowsAffected, nil
 }
