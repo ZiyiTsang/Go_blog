@@ -5,6 +5,7 @@ import (
 	"github.com/zalando/go-keyring"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var DB *gorm.DB
@@ -17,7 +18,8 @@ func ConnectDB() *gorm.DB {
 	logTool.CheckError(err)
 	my_config := mysql.Config{DSN: "root:" + passwd + "@tcp(" + address + ":3306)/go_blog?charset=utf8&parseTime=True"}
 	config := mysql.New(my_config)
-	DB, err = gorm.Open(config, &gorm.Config{})
+	DB, err = gorm.Open(config, &gorm.Config{Logger: logger.Default.LogMode(logger.Info)})
+	//DB, err = gorm.Open(config, &gorm.Config{})  default
 	logTool.CheckError(err)
 	return DB
 }

@@ -41,11 +41,11 @@ type ArticlesData struct {
 	Id    int64
 }
 
-func (a ArticlesData) Link() (URL string) {
-	u, err := router.Get("article.show").URL("id", strconv.Itoa(int(a.Id)))
-	logTool.CheckError(err)
-	return u.String()
-}
+//func (a ArticlesData) Link() (URL string) {
+//	u, err := router.Get("article.show").URL("id", strconv.Itoa(int(a.Id)))
+//	logTool.CheckError(err)
+//	return u.String()
+//}
 
 func (a ArticlesData) delete() (rowaffect int64, err error) {
 	deleteSem := "delete from articles where id=?"
@@ -80,31 +80,6 @@ func validateArticleFormData(title string, body string) map[string]string {
 		e["body"] = "content should within 10-500 character"
 	}
 	return e
-}
-
-func handlerfuncArticlesIndex(w http.ResponseWriter, r *http.Request) {
-	query := "select * from articles"
-	rows, err := db.Query(query)
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logTool.CheckError(err)
-		}
-	}(rows)
-	logTool.CheckError(err)
-	articles := make([]ArticlesData, 0, 10)
-	for rows.Next() {
-		article := ArticlesData{}
-		err := rows.Scan(&article.Id, &article.Title, &article.Body, &article.Time)
-		logTool.CheckError(err)
-		articles = append(articles, article)
-	}
-	err = rows.Err()
-	logTool.CheckError(err)
-	tmpl, _ := template.ParseFiles("resources/views/articles/index.gohtml")
-	err = tmpl.Execute(w, articles)
-	logTool.CheckError(err)
-
 }
 
 func saveArticleToDB(title string, body string) (int64, error) {
@@ -336,7 +311,7 @@ func main() {
 	}(db)
 
 	fmt.Println("create handle function")
-	router.HandleFunc("/articles", handlerfuncArticlesIndex).Methods("GET").Name("articles.index")
+
 	router.HandleFunc("/articles", handlerfuncArticlesStore).Methods("POST").Name("articles.store")
 	router.HandleFunc("/articles/create", handlerfuncArticlesCreate).Methods("GET").Name("articles.create")
 	router.HandleFunc("/articles/{id:[0-9]+}/edit", handlerfuncArticlesEdit).Methods("GET").Name("articles.edit")
