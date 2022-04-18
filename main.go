@@ -1,69 +1,19 @@
 package main
 
 import (
+	"Go_blog/app/http/middlewares"
 	"Go_blog/bootstrap"
 	"Go_blog/pkg/logTool"
 	"database/sql"
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
-	"net/url"
 	"os"
 	"runtime"
-	"strings"
 )
 
 var router *mux.Router
 var db *sql.DB
-
-type ArticlesFormData struct {
-	Title  string
-	Body   string
-	URL    *url.URL
-	Errors interface{}
-	Time   string
-	Id     int64
-}
-type ArticlesData struct {
-	Title string
-	Body  string
-	Time  string //store_time
-	Id    int64
-}
-
-//func (a ArticlesData) Link() (URL string) {
-//	u, err := router.Get("article.show").URL("id", strconv.Itoa(int(a.Id)))
-//	logTool.CheckError(err)
-//	return u.String()
-//}
-
-func (a ArticlesData) delete() (rowaffect int64, err error) {
-	deleteSem := "delete from articles where id=?"
-	exec, err := db.Exec(deleteSem, a.Id)
-	if err != nil {
-		return 0, err
-	}
-	affected, err := exec.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	return affected, nil
-}
-
-func HtmlMiddleware(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		h.ServeHTTP(w, r)
-	})
-}
-func removeTrailingslash(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
-		}
-		next.ServeHTTP(w, r)
-	})
-}
 
 func main() {
 
@@ -95,10 +45,10 @@ func main() {
 			os.Exit(-1)
 		}
 	}(db)
-	router.Use(HtmlMiddleware)
+	router.Use(middlewares.ForceHTML)
 
 	go func() {
-		err := http.ListenAndServe(":3000", removeTrailingslash(router))
+		err := http.ListenAndServe(":3000", middlewares.RemoveTrailingSlash(router))
 		panic(err)
 	}()
 	var choose string
