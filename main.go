@@ -45,7 +45,6 @@ func main() {
 			os.Exit(-1)
 		}
 	}(db)
-	router.Use(middlewares.ForceHTML)
 
 	go func() {
 		err := http.ListenAndServe(":3000", middlewares.RemoveTrailingSlash(router))
