@@ -58,17 +58,30 @@ func (*ArticlesController) Show(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
+		//tmpl, err := template.New("show.gohtml").
+		//	Funcs(template.FuncMap{
+		//		"RouteName2URL": route.Name2URL,
+		//		"Int64ToString": typesTool.Int64ToString,
+		//	}).
+		//	ParseFiles("resources/views/articles/show.gohtml")
+		//logTool.CheckError(err)
+		//err = tmpl.Execute(w, article)
+		//if err != nil {
+		//	logTool.CheckError(err)
+		//}
+		//logTool.CheckError(err)
+		viewDir := "resources/views"
+		files, err := filepath.Glob(viewDir + "/layouts/*.gohtml")
+		logTool.CheckError(err)
+		newFiles := append(files, viewDir+"/articles/show.gohtml")
+
 		tmpl, err := template.New("show.gohtml").
 			Funcs(template.FuncMap{
-				"RouteName2URL": route.Name2URL,
-				"Int64ToString": typesTool.Int64ToString,
-			}).
-			ParseFiles("resources/views/articles/show.gohtml")
+				"RouteName2URL":  route.Name2URL,
+				"Uint64ToString": typesTool.Int64ToString,
+			}).ParseFiles(newFiles...)
 		logTool.CheckError(err)
-		err = tmpl.Execute(w, article)
-		if err != nil {
-			logTool.CheckError(err)
-		}
+		err = tmpl.ExecuteTemplate(w, "app", article)
 		logTool.CheckError(err)
 	}
 }
