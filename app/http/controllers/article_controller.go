@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 	"html/template"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"time"
 	"unicode/utf8"
@@ -83,8 +84,21 @@ func (*ArticlesController) Index(w http.ResponseWriter, r *http.Request) {
 			logTool.CheckError(err)
 		}
 	} else {
-		tmpl, _ := template.ParseFiles("resources/views/articles/index.gohtml")
-		err = tmpl.Execute(w, articles)
+		viewDir := "resources/views"
+
+		// 2.1 所有布局模板文件 Slice
+		files, err := filepath.Glob(viewDir + "/layouts/*.gohtml")
+		logTool.CheckError(err)
+
+		// 2.2 在 Slice 里新增我们的目标文件
+		newFiles := append(files, viewDir+"/articles/index.gohtml")
+
+		// 2.3 解析模板文件
+		tmpl, err := template.ParseFiles(newFiles...)
+		logTool.CheckError(err)
+
+		// 2.4 渲染模板，将所有文章的数据传输进去
+		err = tmpl.ExecuteTemplate(w, "app", articles)
 		logTool.CheckError(err)
 	}
 }
@@ -155,8 +169,13 @@ func (*ArticlesController) Store(w http.ResponseWriter, r *http.Request) {
 		if row_eff <= 0 {
 			fmt.Fprintf(w, "row effected fail")
 		}
-		fmt.Fprint(w, "insert seccuessful\n!")
-		fmt.Fprint(w, article.ID)
+		_, err = fmt.Fprint(w, "insert seccuessful\n!")
+		logTool.CheckError(err)
+		if err != nil {
+			return
+		}
+		_, err = fmt.Fprint(w, article.ID)
+		logTool.CheckError(err)
 	} else {
 		storeURL := route.Name2URL("articles.store")
 		data := ArticlesFormData{
