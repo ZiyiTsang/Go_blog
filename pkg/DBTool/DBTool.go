@@ -32,11 +32,11 @@ func initDB() {
 	}
 	DB, err = sql.Open("mysql", config.FormatDSN())
 	logTool.CheckError(err)
-	//my mySQL "wait_timeout" shows "7200"(s)=2hour,I set same as it did..
+	//my mySQL "wait_timeout" shows "7200"(s)=2hour,I set same as it did.
 	DB.SetConnMaxLifetime(2 * time.Hour)
-	//my mySQL "max_connections" shows 2520,so I set 2000 here..
+	//my mySQL "max_connections" shows 2520,so I set 2000 here.
 	DB.SetMaxOpenConns(1000)
-	//I think it is ok for more than 10..
+	//I think it is ok for more than 10.
 	DB.SetMaxIdleConns(40)
 	err = DB.Ping()
 	logTool.CheckError(err)

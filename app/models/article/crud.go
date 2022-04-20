@@ -6,9 +6,9 @@ import (
 	"Go_blog/pkg/typesTool"
 )
 
-func Get(id_str string) (Article, error) {
+func Get(idStr string) (Article, error) {
 	var article Article
-	id := typesTool.StringToint64(id_str)
+	id := typesTool.StringToint64(idStr)
 	if err := model.DB.First(&article, id).Error; err != nil {
 		return article, err
 	}
@@ -24,17 +24,17 @@ func GetAll() ([]Article, error) {
 }
 
 func (a Article) CreateWithTitleBody() (int64, error) {
-	t_obj := model.DB.Exec("insert into articles(title,body,time) VALUES (?,?,now())", a.Title, a.Body)
-	row := t_obj.RowsAffected
-	if err := t_obj.Error; err != nil {
+	tObj := model.DB.Exec("insert into articles(title,body,time) VALUES (?,?,now())", a.Title, a.Body)
+	row := tObj.RowsAffected
+	if err := tObj.Error; err != nil {
 		return 0, err
 	}
 	return row, nil
 }
 func (a Article) Create() (int64, error) {
-	t_obj := model.DB.Create(&a)
-	row := t_obj.RowsAffected
-	if err := t_obj.Error; err != nil {
+	tObj := model.DB.Create(&a)
+	row := tObj.RowsAffected
+	if err := tObj.Error; err != nil {
 		return 0, err
 	}
 	return row, nil

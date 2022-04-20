@@ -15,8 +15,8 @@ func ConnectDB() *gorm.DB {
 	logTool.CheckError(err)
 	address, err := keyring.Get("mysql", "address")
 	logTool.CheckError(err)
-	my_config := mysql.Config{DSN: "root:" + passwd + "@tcp(" + address + ":3306)/go_blog?charset=utf8&parseTime=True"}
-	config := mysql.New(my_config)
+	myConfig := mysql.Config{DSN: "root:" + passwd + "@tcp(" + address + ":3306)/go_blog?charset=utf8&parseTime=True"}
+	config := mysql.New(myConfig)
 	//DB, err = gorm.Open(config, &gorm.Config{Logger: logger.Default.LogMode(logger.Info)})
 	DB, err = gorm.Open(config, &gorm.Config{}) // default
 	logTool.CheckError(err)

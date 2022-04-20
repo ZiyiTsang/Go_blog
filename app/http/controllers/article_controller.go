@@ -1,13 +1,12 @@
 package controllers
 
 import (
-	article_pkg "Go_blog/app/models/article"
+	articlepkg "Go_blog/app/models/article"
 	"Go_blog/pkg/logTool"
 	"Go_blog/pkg/route"
 	"Go_blog/pkg/view"
 	"fmt"
 	"gorm.io/gorm"
-	"html/template"
 	"net/http"
 	"strconv"
 	"time"
@@ -38,7 +37,7 @@ func (*ArticlesController) Show(w http.ResponseWriter, r *http.Request) {
 	id := route.GetVariebleFromURL("id", r)
 
 	// 2. load article from mysql
-	article, err := article_pkg.Get(id)
+	article, err := articlepkg.Get(id)
 
 	// 3. if wrong
 	if err != nil {
@@ -63,7 +62,7 @@ func (*ArticlesController) Show(w http.ResponseWriter, r *http.Request) {
 
 // Index 文章列表页
 func (*ArticlesController) Index(w http.ResponseWriter, r *http.Request) {
-	articles, err := article_pkg.GetAll()
+	articles, err := articlepkg.GetAll()
 	if err != nil {
 		logTool.CheckError(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -96,16 +95,7 @@ func (*ArticlesController) Create(w http.ResponseWriter, r *http.Request) {
 		URL:    storeURL,
 		Errors: errTag,
 	}
-	tmpl, err := template.ParseFiles("resources/views/articles/create.gohtml")
-	if err != nil {
-		logTool.CheckError(err)
-	}
-
-	err = tmpl.Execute(w, data)
-	if err != nil {
-		logTool.CheckError(err)
-	}
-
+	view.Render(w, "articles.create", data)
 }
 
 // Store 文章创建页面
@@ -125,12 +115,12 @@ func (*ArticlesController) Store(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logTool.CheckError(err)
 		}
-		article := article_pkg.Article{
+		article := articlepkg.Article{
 			Title: title,
 			Body:  body,
 		}
-		var row_eff int64
-		row_eff, err = article.CreateWithTitleBody()
+		var rowEff int64
+		rowEff, err = article.CreateWithTitleBody()
 		if err != nil {
 			w.WriteHeader(500)
 			_, err := fmt.Fprint(w, "SQL error!")
@@ -139,10 +129,10 @@ func (*ArticlesController) Store(w http.ResponseWriter, r *http.Request) {
 			}
 			logTool.CheckError(err)
 		}
-		if row_eff <= 0 {
+		if rowEff <= 0 {
 			fmt.Fprintf(w, "row effected fail")
 		}
-		_, err = fmt.Fprint(w, "insert seccuessful\n!")
+		_, err = fmt.Fprint(w, "insert successful\n!")
 		logTool.CheckError(err)
 		if err != nil {
 			return
@@ -157,19 +147,12 @@ func (*ArticlesController) Store(w http.ResponseWriter, r *http.Request) {
 			URL:    storeURL,
 			Errors: errorTag,
 		}
-		tmpl, err := template.ParseFiles("resources/views/articles/create.gohtml")
-		if err != nil {
-			panic(err)
-		}
-		err = tmpl.Execute(w, data)
-		if err != nil {
-			panic(err)
-		}
+		view.Render(w, "articles.store", data, "articles._form_field")
 	}
 }
 func (*ArticlesController) Edit(w http.ResponseWriter, r *http.Request) {
 	id := route.GetVariebleFromURL("id", r)
-	article, err := article_pkg.Get(id)
+	article, err := articlepkg.Get(id)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			w.WriteHeader(404)
@@ -186,17 +169,11 @@ func (*ArticlesController) Edit(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		updateURL := route.Name2URL("articles.update", "id", id)
-		err_tag := make(map[string]string)
-		err_tag["title"] = ""
-		err_tag["body"] = ""
-		data := ArticlesFormData{Title: article.Title, Body: article.Body, URL: updateURL, Time: article.Time, Errors: err_tag, ID: article.ID}
-		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
-		logTool.CheckError(err)
-		err = tmpl.Execute(w, data)
-		if err != nil {
-			logTool.CheckError(err)
-		}
-		logTool.CheckError(err)
+		errTag := make(map[string]string)
+		errTag["title"] = ""
+		errTag["body"] = ""
+		data := ArticlesFormData{Title: article.Title, Body: article.Body, URL: updateURL, Time: article.Time, Errors: errTag, ID: article.ID}
+		view.Render(w, "articles.edit", data, "articles._form_field")
 	}
 }
 func (*ArticlesController) Update(w http.ResponseWriter, r *http.Request) {
@@ -205,7 +182,7 @@ func (*ArticlesController) Update(w http.ResponseWriter, r *http.Request) {
 	title := r.PostFormValue("title")
 	body := r.PostFormValue("body")
 	errorTag := ValidateArticleFormData(title, body)
-	article, _ := article_pkg.Get(id)
+	article, _ := articlepkg.Get(id)
 	if len(errorTag) == 0 {
 		article.Time = time.Now().String()[0:19]
 		article.Title = title
@@ -232,20 +209,16 @@ func (*ArticlesController) Update(w http.ResponseWriter, r *http.Request) {
 	} else {
 
 		updateURL := route.Name2URL("articles.update", "id", id)
-
 		idNum, _ := strconv.Atoi(id)
 		data := ArticlesFormData{Title: title, Body: body, URL: updateURL, Time: "", ID: int64(idNum), Errors: errorTag}
-		tmpl, err := template.ParseFiles("resources/views/articles/edit.gohtml")
-		logTool.CheckError(err)
-		err = tmpl.Execute(w, data)
-		logTool.CheckError(err)
+		view.Render(w, "articles.edit", data, "articles._form_field")
 	}
 }
 
 // Delete 删除文章
 func (*ArticlesController) Delete(w http.ResponseWriter, r *http.Request) {
 	id := route.GetVariebleFromURL("id", r)
-	article, err := article_pkg.Get(id)
+	article, err := articlepkg.Get(id)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			w.WriteHeader(404)
