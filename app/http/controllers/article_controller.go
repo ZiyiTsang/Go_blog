@@ -4,12 +4,11 @@ import (
 	article_pkg "Go_blog/app/models/article"
 	"Go_blog/pkg/logTool"
 	"Go_blog/pkg/route"
-	"Go_blog/pkg/typesTool"
+	"Go_blog/pkg/view"
 	"fmt"
 	"gorm.io/gorm"
 	"html/template"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"time"
 	"unicode/utf8"
@@ -58,31 +57,7 @@ func (*ArticlesController) Show(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		//tmpl, err := template.New("show.gohtml").
-		//	Funcs(template.FuncMap{
-		//		"RouteName2URL": route.Name2URL,
-		//		"Int64ToString": typesTool.Int64ToString,
-		//	}).
-		//	ParseFiles("resources/views/articles/show.gohtml")
-		//logTool.CheckError(err)
-		//err = tmpl.Execute(w, article)
-		//if err != nil {
-		//	logTool.CheckError(err)
-		//}
-		//logTool.CheckError(err)
-		viewDir := "resources/views"
-		files, err := filepath.Glob(viewDir + "/layouts/*.gohtml")
-		logTool.CheckError(err)
-		newFiles := append(files, viewDir+"/articles/show.gohtml")
-
-		tmpl, err := template.New("show.gohtml").
-			Funcs(template.FuncMap{
-				"RouteName2URL":  route.Name2URL,
-				"Uint64ToString": typesTool.Int64ToString,
-			}).ParseFiles(newFiles...)
-		logTool.CheckError(err)
-		err = tmpl.ExecuteTemplate(w, "app", article)
-		logTool.CheckError(err)
+		view.Render(w, "articles.show", article)
 	}
 }
 
@@ -97,22 +72,7 @@ func (*ArticlesController) Index(w http.ResponseWriter, r *http.Request) {
 			logTool.CheckError(err)
 		}
 	} else {
-		viewDir := "resources/views"
-
-		// 2.1 所有布局模板文件 Slice
-		files, err := filepath.Glob(viewDir + "/layouts/*.gohtml")
-		logTool.CheckError(err)
-
-		// 2.2 在 Slice 里新增我们的目标文件
-		newFiles := append(files, viewDir+"/articles/index.gohtml")
-
-		// 2.3 解析模板文件
-		tmpl, err := template.ParseFiles(newFiles...)
-		logTool.CheckError(err)
-
-		// 2.4 渲染模板，将所有文章的数据传输进去
-		err = tmpl.ExecuteTemplate(w, "app", articles)
-		logTool.CheckError(err)
+		view.Render(w, "articles.index", articles)
 	}
 }
 
