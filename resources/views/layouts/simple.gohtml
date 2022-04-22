@@ -1,4 +1,4 @@
-{{define "app"}}
+{{define "simple"}}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -12,11 +12,11 @@
 <body>
 
   <div class="container-sm">
-    <div class="row mt-5">
+    <div class="row  mt-5">
 
-      {{template "sidebar" .}}
-
-      {{template "main" .}}
+      <div class="col-md-8 offset-md-2 blog-main">
+        {{template "main" .}}
+      </div>
 
     </div>
   </div>

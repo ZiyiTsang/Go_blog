@@ -56,7 +56,7 @@ func (*ArticlesController) Show(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		view.Render(w, "articles.show", article)
+		view.Render(w, article, "articles.show")
 	}
 }
 
@@ -71,7 +71,7 @@ func (*ArticlesController) Index(w http.ResponseWriter, r *http.Request) {
 			logTool.CheckError(err)
 		}
 	} else {
-		view.Render(w, "articles.index", articles)
+		view.Render(w, articles, "articles.index")
 	}
 }
 
@@ -95,7 +95,7 @@ func (*ArticlesController) Create(w http.ResponseWriter, r *http.Request) {
 		URL:    storeURL,
 		Errors: errTag,
 	}
-	view.Render(w, "articles.create", data)
+	view.Render(w, data, "articles.create")
 }
 
 // Store 文章创建页面
@@ -147,7 +147,7 @@ func (*ArticlesController) Store(w http.ResponseWriter, r *http.Request) {
 			URL:    storeURL,
 			Errors: errorTag,
 		}
-		view.Render(w, "articles.store", data, "articles._form_field")
+		view.Render(w, data, "articles.store", "articles._form_field")
 	}
 }
 func (*ArticlesController) Edit(w http.ResponseWriter, r *http.Request) {
@@ -173,7 +173,7 @@ func (*ArticlesController) Edit(w http.ResponseWriter, r *http.Request) {
 		errTag["title"] = ""
 		errTag["body"] = ""
 		data := ArticlesFormData{Title: article.Title, Body: article.Body, URL: updateURL, Time: article.Time, Errors: errTag, ID: article.ID}
-		view.Render(w, "articles.edit", data, "articles._form_field")
+		view.Render(w, data, "articles.edit", "articles._form_field")
 	}
 }
 func (*ArticlesController) Update(w http.ResponseWriter, r *http.Request) {
@@ -211,7 +211,7 @@ func (*ArticlesController) Update(w http.ResponseWriter, r *http.Request) {
 		updateURL := route.Name2URL("articles.update", "id", id)
 		idNum, _ := strconv.Atoi(id)
 		data := ArticlesFormData{Title: title, Body: body, URL: updateURL, Time: "", ID: int64(idNum), Errors: errorTag}
-		view.Render(w, "articles.edit", data, "articles._form_field")
+		view.Render(w, data, "articles.edit", "articles._form_field")
 	}
 }
 
